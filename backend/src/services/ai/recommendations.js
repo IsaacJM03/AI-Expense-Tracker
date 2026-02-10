@@ -36,7 +36,7 @@ async function generateRecommendations(userId) {
 
 async function generateSavingsRecommendation(userId) {
   // Analyze 3-month average income vs expenses
-  const [income] = await db.query(
+  const [incomeResult] = await db.query(
     `SELECT COALESCE(AVG(monthly_total), 0) as avg_income FROM (
        SELECT DATE_FORMAT(income_date, '%Y-%m') as month, SUM(amount) as monthly_total
        FROM incomes WHERE user_id = ? AND income_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
@@ -45,7 +45,7 @@ async function generateSavingsRecommendation(userId) {
     [userId]
   );
 
-  const [expenses] = await db.query(
+  const [expenseResult] = await db.query(
     `SELECT COALESCE(AVG(monthly_total), 0) as avg_expense FROM (
        SELECT DATE_FORMAT(expense_date, '%Y-%m') as month, SUM(amount) as monthly_total
        FROM expenses WHERE user_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
@@ -54,8 +54,8 @@ async function generateSavingsRecommendation(userId) {
     [userId]
   );
 
-  const avgIncome = parseFloat(income.avg_income);
-  const avgExpense = parseFloat(expenses.avg_expense);
+  const avgIncome = parseFloat(incomeResult.avg_income);
+  const avgExpense = parseFloat(expenseResult.avg_expense);
 
   if (avgIncome <= 0 || avgExpense <= 0) return null;
 
