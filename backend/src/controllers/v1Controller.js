@@ -234,12 +234,15 @@ async function smartInsights(req, res, next) {
   try {
     // Try LLM first for enhanced insights
     if (isLLMConfigured()) {
-      // Build spending profile for LLM
+      // Build anonymized spending profile for LLM (no PII)
       const ruleBasedInsights = await generateInsights(req.user.id);
-      const llmResult = await generateInsightsWithLLM({
-        ruleBasedInsights,
-        userId: 'anonymous', // Don't send PII
-      });
+      const anonymizedData = {
+        insights: (ruleBasedInsights || []).map(i => ({
+          title: i.title,
+          type: i.type,
+        })),
+      };
+      const llmResult = await generateInsightsWithLLM(anonymizedData);
 
       if (llmResult.success) {
         return res.json({

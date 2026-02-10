@@ -449,15 +449,24 @@ mobile/src/
 - [x] 4 new React Native screens (Scan Receipt, Seasonal Analysis, Currency, Export)
 - [x] 24 new V1 tests (54 total)
 
-### V2 (Planned)
+### V2 (Implemented)
+- [x] Fixed Expo "main" registration error (AppRegistry.registerComponent)
+- [x] Liquid Glass UI redesign (dark translucent theme inspired by Apple's design language)
+- [x] LLM integration service (OpenAI-compatible API with rule-based fallback)
+- [x] Smart expense parsing via LLM (`POST /api/v1/ai/parse`)
+- [x] LLM-powered category prediction (`POST /api/v1/ai/categorize`)
+- [x] AI-enhanced insights generation (`GET /api/v1/ai/insights`)
+- [x] LLM-enhanced OCR receipt parsing (falls back to rule-based)
+- [x] AI status endpoint (`GET /api/v1/ai/status`)
+- [x] 63 total tests passing
+
+### V3 (Planned)
 - [ ] Voice input for expenses
 - [ ] Push notifications for budget alerts
-- [ ] LLM integration for complex parsing
-- [ ] ML-based category prediction
+- [ ] Camera-based OCR capture
 - [ ] Shared household budgets
 - [ ] PDF export
 - [ ] Biometric authentication
-- [ ] Camera-based OCR capture
 
 ---
 
@@ -514,6 +523,51 @@ POST /api/v1/ocr/receipt
   },
   "needsConfirmation": false
 }
+
+---
+
+## 🤖 LLM / AI API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/ai/status` | Check AI configuration and available features |
+| POST | `/api/v1/ai/parse` | Smart parse free-text expense (LLM → rule-based fallback) |
+| POST | `/api/v1/ai/categorize` | Predict category for expense description |
+| GET | `/api/v1/ai/insights` | Generate AI-powered spending insights |
+
+**Smart Parse:**
+```json
+POST /api/v1/ai/parse
+{ "text": "spent 5k on uber to the airport" }
+
+// Response (LLM configured):
+{ "amount": 5000, "category": "Transport", "description": "Uber to the airport", "confidence": 0.92, "source": "llm" }
+
+// Response (fallback):
+{ "amount": 5000, "category": "Transport", "confidence": 0.75, "source": "rule-based" }
+```
+
+**AI Status:**
+```json
+GET /api/v1/ai/status
+{
+  "llmConfigured": true,
+  "features": { "smartParse": true, "smartCategorize": true, "smartInsights": true, "ocrEnhanced": true },
+  "model": "gpt-4o",
+  "fallback": "rule-based"
+}
+```
+
+### Configuration
+
+Set these environment variables to enable LLM features:
+```bash
+LLM_API_KEY=your-api-key        # Required: OpenAI, GitHub Copilot, or compatible API key
+LLM_API_URL=https://api.openai.com/v1/chat/completions  # Optional: API endpoint
+LLM_MODEL=gpt-4o                # Optional: Model to use
+```
+
+When `LLM_API_KEY` is not set, all AI endpoints gracefully fall back to rule-based logic.
 
 ---
 
