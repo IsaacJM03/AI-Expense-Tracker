@@ -393,9 +393,14 @@ mobile/src/
 │   ├── InsightsScreen.js       # Forecasts, insights, recommendations
 │   ├── BudgetScreen.js         # Budget management
 │   ├── AddExpenseScreen.js     # Manual expense form
-│   └── ProfileScreen.js       # Account settings, export, logout
+│   ├── ProfileScreen.js        # Account settings, V1 feature access
+│   ├── ScanReceiptScreen.js    # OCR receipt processing (V1)
+│   ├── SeasonalScreen.js       # Seasonal spending analysis (V1)
+│   ├── CurrencyScreen.js       # Multi-currency selector (V1)
+│   └── ExportScreen.js         # Data export CSV/report (V1)
 └── services/
-    └── api.js                  # REST API client
+    ├── api.js                  # REST API client
+    └── offlineSync.js          # Offline queue with retry (V1)
 ```
 
 ---
@@ -435,18 +440,80 @@ mobile/src/
 - [x] RESTful API with validation
 - [x] 30 automated tests
 
-### V1 (Planned)
-- [ ] Receipt OCR (camera → text → structured data)
+### V1 (Implemented)
+- [x] Receipt OCR (text → structured data with merchant, total, date, line items)
+- [x] Offline-first with sync queue (mobile queue service with retry logic)
+- [x] Seasonal spending analysis (monthly, day-of-week, pay-cycle correlation, category peaks)
+- [x] Multi-currency support (15 currencies with conversion + formatting)
+- [x] Data export (CSV for expenses and incomes, full report)
+- [x] 4 new React Native screens (Scan Receipt, Seasonal Analysis, Currency, Export)
+- [x] 24 new V1 tests (54 total)
+
+### V2 (Planned)
 - [ ] Voice input for expenses
-- [ ] Offline-first with sync queue
 - [ ] Push notifications for budget alerts
 - [ ] LLM integration for complex parsing
 - [ ] ML-based category prediction
-- [ ] Seasonal spending analysis
-- [ ] Multi-currency support
 - [ ] Shared household budgets
-- [ ] Data export (CSV/PDF)
+- [ ] PDF export
 - [ ] Biometric authentication
+- [ ] Camera-based OCR capture
+
+---
+
+## 🔌 V1 API Endpoints
+
+### Data Export
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/export/expenses` | Export expenses as CSV |
+| GET | `/api/v1/export/incomes` | Export incomes as CSV |
+| GET | `/api/v1/export/all` | Full financial report (JSON) |
+
+### Currency
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/currencies` | List 15 supported currencies |
+| GET | `/api/v1/currencies/convert?amount=100&from=USD&to=KES` | Convert between currencies |
+
+### Seasonal Analysis
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/analytics/seasonal` | Full seasonal analysis (monthly, day-of-week, pay-cycle, category peaks) |
+
+### OCR Receipt Processing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/ocr/receipt` | Process receipt text → structured expense |
+
+**OCR Request:**
+```json
+POST /api/v1/ocr/receipt
+{
+  "ocrText": "Java House\n2024-01-15\nCoffee 350\nSandwich 500\nTotal: 850"
+}
+```
+
+**Response:**
+```json
+{
+  "expense": { "id": "uuid", "amount": 850, "source": "ocr" },
+  "parsed": {
+    "merchant": "Java House",
+    "total": 850,
+    "date": "2024-01-15",
+    "lineItems": [
+      { "name": "Coffee", "amount": 350 },
+      { "name": "Sandwich", "amount": 500 }
+    ],
+    "confidence": 1.0
+  },
+  "needsConfirmation": false
+}
 
 ---
 
@@ -458,8 +525,9 @@ mobile/src/
 | API | Stateless services, horizontal scaling behind load balancer |
 | Caching | Redis for frequent analytics queries (planned) |
 | AI Processing | Async job queue for insights generation (planned) |
-| Mobile | Offline queue with background sync (planned) |
+| Mobile | Offline queue with background sync (implemented) |
 | Storage | S3/GCS for receipt images (planned) |
+| Currency | Static fallback rates + live API integration (planned) |
 
 ---
 

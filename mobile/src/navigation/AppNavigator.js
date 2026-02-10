@@ -13,6 +13,10 @@ import InsightsScreen from '../screens/InsightsScreen';
 import BudgetScreen from '../screens/BudgetScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ExportScreen from '../screens/ExportScreen';
+import ScanReceiptScreen from '../screens/ScanReceiptScreen';
+import SeasonalScreen from '../screens/SeasonalScreen';
+import CurrencyScreen from '../screens/CurrencyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -55,6 +59,10 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: true, title: 'Add Expense', presentation: 'modal' }} />
+            <Stack.Screen name="ScanReceipt" component={ScanReceiptScreen} options={{ headerShown: true, title: 'Scan Receipt', presentation: 'modal' }} />
+            <Stack.Screen name="Export" component={ExportScreen} options={{ headerShown: true, title: 'Export Data', presentation: 'modal' }} />
+            <Stack.Screen name="Seasonal" component={SeasonalScreen} options={{ headerShown: true, title: 'Seasonal Analysis', presentation: 'modal' }} />
+            <Stack.Screen name="Currency" component={CurrencyScreen} options={{ headerShown: true, title: 'Currency', presentation: 'modal' }} />
           </>
         ) : (
           <>

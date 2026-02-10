@@ -164,6 +164,50 @@ class ApiService {
       body: JSON.stringify({ status }),
     });
   }
+
+  // V1: Data Export
+  async exportExpenses(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/v1/export/expenses?${query}`);
+  }
+
+  async exportIncomes() {
+    return this.request('/v1/export/incomes');
+  }
+
+  async exportAll() {
+    return this.request('/v1/export/all');
+  }
+
+  // V1: Currency
+  async getCurrencies() {
+    return this.request('/v1/currencies');
+  }
+
+  async convertCurrency(amount, from, to) {
+    return this.request(`/v1/currencies/convert?amount=${amount}&from=${from}&to=${to}`);
+  }
+
+  // V1: Seasonal Analysis
+  async getSeasonalAnalysis() {
+    return this.request('/v1/analytics/seasonal');
+  }
+
+  // V1: OCR Receipt
+  async processReceipt(ocrText) {
+    return this.request('/v1/ocr/receipt', {
+      method: 'POST',
+      body: JSON.stringify({ ocrText }),
+    });
+  }
+
+  // Profile update
+  async updateProfile(data) {
+    return this.request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export default new ApiService();

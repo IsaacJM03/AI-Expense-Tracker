@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'rea
 import { COLORS, FONT_SIZES } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
@@ -11,10 +11,6 @@ export default function ProfileScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: logout },
     ]);
-  };
-
-  const handleExport = () => {
-    Alert.alert('Export Data', 'Data export feature coming soon. Your data belongs to you.');
   };
 
   return (
@@ -28,19 +24,29 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>Currency: {user?.currency || 'KES'}</Text>
+        <Text style={styles.sectionTitle}>Tools</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ScanReceipt')}>
+          <Text style={styles.menuText}>📷 Scan Receipt (OCR)</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={handleExport}>
-          <Text style={styles.menuText}>Export Data</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Seasonal')}>
+          <Text style={styles.menuText}>📅 Seasonal Analysis</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Currency')}>
+          <Text style={styles.menuText}>💱 Currency: {user?.currency || 'KES'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Export')}>
+          <Text style={styles.menuText}>📤 Export Data</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Security</Text>
         <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>Change Password</Text>
+          <Text style={styles.menuText}>🔒 Change Password</Text>
         </TouchableOpacity>
       </View>
 
@@ -48,7 +54,7 @@ export default function ProfileScreen() {
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>v1.0.0 • AI Expense Tracker</Text>
+      <Text style={styles.version}>v1.1.0 • AI Expense Tracker</Text>
     </ScrollView>
   );
 }
