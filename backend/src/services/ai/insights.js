@@ -6,11 +6,12 @@
  *   - "Your food expenses spike after salary week"
  *   - "At current pace, you'll exceed transport budget in 6 days"
  *
- * Rule-based pattern detection with LLM-ready hooks for
- * natural language generation of insight descriptions.
+ * Rule-based pattern detection provides the DATA.
+ * LLM enhances with natural, actionable DESCRIPTIONS when configured.
  */
 
 const db = require('../../config/database');
+const { isLLMConfigured, callLLM } = require('./llmService');
 
 async function generateWeekdayVsWeekendInsight(userId) {
   const rows = await db.query(
@@ -113,9 +114,66 @@ async function generateAllInsights(userId) {
     generateTopExpenseInsight(userId),
   ]);
 
-  return results
+  const ruleInsights = results
     .filter(r => r.status === 'fulfilled' && r.value !== null)
     .map(r => r.value);
+
+  // If LLM is configured, enhance descriptions with natural language
+  console.log('[insights] isLLMConfigured:', isLLMConfigured(), '| ruleInsights count:', ruleInsights.length);
+  if (isLLMConfigured() && ruleInsights.length > 0) {
+    try {
+      console.log('[insights] Calling enhanceInsightsWithLLM...');
+      const enhanced = await enhanceInsightsWithLLM(ruleInsights);
+      console.log('[insights] Enhanced result:', enhanced ? 'SUCCESS' : 'NULL');
+      if (enhanced) return enhanced;
+    } catch (err) {
+      console.error('[insights] LLM enhancement error:', err.message || err);
+    }
+  }
+
+  return ruleInsights;
+}
+
+/**
+ * Takes rule-based insights (with raw data) and asks the LLM
+ * to rewrite the descriptions to be more actionable and personal.
+ * The DATA stays math-based; only the TEXT gets enhanced.
+ */
+async function enhanceInsightsWithLLM(ruleInsights) {
+  const systemPrompt = `You are a personal finance advisor. You will receive spending insights with raw data. 
+Rewrite ONLY the "description" field for each insight to be more actionable, specific, and conversational.
+
+Rules:
+- Keep the same structure (title, insightType, data, priority stay unchanged)
+- Make descriptions specific with numbers from the data
+- Add a practical tip when possible
+- Keep each description under 2 sentences
+- Be direct, not generic
+
+Return ONLY a valid JSON array with the same objects but improved descriptions.`;
+
+  const result = await callLLM(systemPrompt, JSON.stringify(ruleInsights), {
+    temperature: 0.5,
+    maxTokens: 800,
+  });
+
+  if (!result.success) {
+    console.error('LLM call failed in enhanceInsightsWithLLM:', result.error);
+    return null;
+  }
+
+  try {
+    const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+    const enhanced = JSON.parse(cleaned);
+    // Merge: keep rule-based data, take LLM descriptions
+    return ruleInsights.map((original, i) => ({
+      ...original,
+      description: enhanced[i]?.description || original.description,
+      source: 'llm-enhanced',
+    }));
+  } catch {
+    return null;
+  }
 }
 
 module.exports = { generateAllInsights, generateWeekdayVsWeekendInsight, generateCategoryTrendInsight, generateTopExpenseInsight };

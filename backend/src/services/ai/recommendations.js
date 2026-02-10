@@ -7,11 +7,11 @@
  * Good: "Reducing eating out by 2 days/week saves ~18,000/month"
  * Best: "Move 15,000 to savings every Monday based on your last 3 months"
  *
- * Uses rule-based analysis of spending patterns.
- * LLM integration planned for natural language generation.
+ * Math finds the opportunities. LLM writes the advice (when configured).
  */
 
 const db = require('../../config/database');
+const { isLLMConfigured, callLLM } = require('./llmService');
 
 async function generateRecommendations(userId) {
   const recommendations = [];
@@ -28,6 +28,16 @@ async function generateRecommendations(userId) {
       } else {
         recommendations.push(result.value);
       }
+    }
+  }
+
+  // If LLM is configured, enhance with richer, more personal advice
+  if (isLLMConfigured() && recommendations.length > 0) {
+    try {
+      const enhanced = await enhanceRecommendationsWithLLM(userId, recommendations);
+      if (enhanced) return enhanced;
+    } catch (err) {
+      // Fall through to rule-based
     }
   }
 
@@ -135,3 +145,58 @@ async function generateSpendingCutRecommendation(userId) {
 }
 
 module.exports = { generateRecommendations };
+
+/**
+ * Takes rule-based recommendations (with actionData) and asks the LLM
+ * to rewrite descriptions with richer, more personal financial advice.
+ * Also fetches a financial snapshot to give the LLM more context.
+ */
+async function enhanceRecommendationsWithLLM(userId, ruleRecommendations) {
+  // Build a lightweight financial context (no PII)
+  const [incomeRow] = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM incomes WHERE user_id = ? AND income_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+    [userId]
+  );
+  const [expenseRow] = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = ? AND expense_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+    [userId]
+  );
+
+  const context = {
+    monthlyIncome: parseFloat(incomeRow.total),
+    monthlySpendSoFar: parseFloat(expenseRow.total),
+    recommendations: ruleRecommendations,
+  };
+
+  const systemPrompt = `You are a personal finance advisor. You'll receive financial data and rule-based recommendations.
+Rewrite ONLY the "title" and "description" fields to be more conversational, specific, and actionable.
+
+Rules:
+- Keep recommendationType, potentialSavings, and actionData UNCHANGED
+- Use exact numbers from the data — don't round or invent
+- Each description should be 1-2 sentences max
+- Include a concrete action step (when, how much, where)
+- Be encouraging, not preachy
+
+Return ONLY a valid JSON array with the same structure but improved title/description.`;
+
+  const result = await callLLM(systemPrompt, JSON.stringify(context), {
+    temperature: 0.4,
+    maxTokens: 800,
+  });
+
+  if (!result.success) return null;
+
+  try {
+    const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+    const enhanced = JSON.parse(cleaned);
+    return ruleRecommendations.map((original, i) => ({
+      ...original,
+      title: enhanced[i]?.title || original.title,
+      description: enhanced[i]?.description || original.description,
+      source: 'llm-enhanced',
+    }));
+  } catch {
+    return null;
+  }
+}

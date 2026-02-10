@@ -9,6 +9,7 @@ const Category = require('../models/Category');
 const { categorizeExpense } = require('../services/ai/categorization');
 const {
   isLLMConfigured,
+  getProviderInfo,
   parseExpenseWithLLM,
   predictCategoryWithLLM,
   generateInsightsWithLLM,
@@ -265,15 +266,17 @@ async function smartInsights(req, res, next) {
 
 // AI status endpoint
 async function aiStatus(req, res) {
+  const info = getProviderInfo();
   res.json({
     llmConfigured: isLLMConfigured(),
+    provider: info.provider,
+    model: info.model,
     features: {
       smartParse: true,
       smartCategorize: true,
       smartInsights: true,
       ocrEnhanced: true,
     },
-    model: isLLMConfigured() ? (process.env.LLM_MODEL || 'gpt-4o') : null,
     fallback: 'rule-based',
   });
 }

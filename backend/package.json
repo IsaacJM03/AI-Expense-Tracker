@@ -9,7 +9,8 @@
     "test": "jest --coverage --forceExit --detectOpenHandles",
     "test:watch": "jest --watch",
     "migrate": "node src/database/migrate.js",
-    "seed": "node src/database/seed.js"
+    "seed": "node src/database/seed.js",
+    "seed:dummy": "node src/database/seedDummy.js"
   },
   "keywords": ["expense-tracker", "ai", "finance", "budgeting"],
   "license": "MIT",

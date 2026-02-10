@@ -1,7 +1,10 @@
 /**
  * LLM Integration Service
  *
- * Provides AI-powered features using OpenAI-compatible APIs.
+ * Multi-provider AI service:
+ *   - Google Gemini (free tier — primary)
+ *   - OpenAI (paid — fallback)
+ *
  * Used for:
  *   - Complex expense parsing (ambiguous free-text)
  *   - Natural language insight generation
@@ -13,18 +16,76 @@
 
 const config = require('../../config');
 
-const LLM_API_URL = process.env.LLM_API_URL || 'https://api.githubcopilot.com/chat/completions';
+// ─── Provider Config ─────────────────────────────────────────
+const LLM_PROVIDER = process.env.LLM_PROVIDER || 'openai';
+
+// Gemini
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+// OpenAI (fallback)
+const LLM_API_URL = process.env.LLM_API_URL || 'https://api.openai.com/v1/chat/completions';
 const LLM_API_KEY = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || '';
 const LLM_MODEL = process.env.LLM_MODEL || 'gpt-4o';
+const OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
 
 function isLLMConfigured() {
+  if (LLM_PROVIDER === 'gemini') return !!GEMINI_API_KEY;
   return !!LLM_API_KEY;
 }
 
-async function callLLM(systemPrompt, userMessage, options = {}) {
-  if (!isLLMConfigured()) {
-    return { success: false, error: 'LLM not configured', fallback: true };
+function getProviderInfo() {
+  if (LLM_PROVIDER === 'gemini' && GEMINI_API_KEY) {
+    return { provider: 'gemini', model: GEMINI_MODEL };
   }
+  if (LLM_API_KEY) {
+    return { provider: 'openai', model: LLM_MODEL };
+  }
+  return { provider: null, model: null };
+}
+
+// ─── Gemini Call ─────────────────────────────────────────────
+async function callGemini(systemPrompt, userMessage, options = {}) {
+  const model = options.model || GEMINI_MODEL;
+  const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+    generationConfig: {
+      temperature: options.temperature || 0.3,
+      maxOutputTokens: options.maxTokens || 500,
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    const msg = err.error?.message || `Gemini HTTP ${response.status}`;
+    console.error('Gemini error:', msg);
+    return { success: false, error: msg, fallback: true };
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!content) return { success: false, error: 'Empty Gemini response', fallback: true };
+
+  return { success: true, content, provider: 'gemini', usage: data.usageMetadata };
+}
+
+// ─── OpenAI Call ─────────────────────────────────────────────
+async function callOpenAI(systemPrompt, userMessage, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${LLM_API_KEY}`,
+  };
+  if (OPENAI_ORG_ID) headers['OpenAI-Organization'] = OPENAI_ORG_ID;
 
   const body = {
     model: options.model || LLM_MODEL,
@@ -36,26 +97,58 @@ async function callLLM(systemPrompt, userMessage, options = {}) {
     max_tokens: options.maxTokens || 500,
   };
 
-  try {
-    const response = await fetch(LLM_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LLM_API_KEY}`,
-      },
-      body: JSON.stringify(body),
-    });
+  const response = await fetch(LLM_API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, error: `LLM API error: ${response.status}`, fallback: true };
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    const msg = err.error?.message || `OpenAI HTTP ${response.status}`;
+    console.error('OpenAI error:', msg);
+    return { success: false, error: msg, fallback: true };
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content?.trim();
+  return { success: true, content, provider: 'openai', usage: data.usage };
+}
+
+// ─── Unified Entry Point ─────────────────────────────────────
+async function callLLM(systemPrompt, userMessage, options = {}) {
+  if (!isLLMConfigured()) {
+    return { success: false, error: 'LLM not configured', fallback: true };
+  }
+
+  try {
+    // Primary: Gemini
+    if (LLM_PROVIDER === 'gemini' && GEMINI_API_KEY) {
+      const result = await callGemini(systemPrompt, userMessage, options);
+      if (result.success) return result;
+      // Fallback to OpenAI if Gemini fails
+      if (LLM_API_KEY) {
+        console.log('Gemini failed, trying OpenAI fallback...');
+        return await callOpenAI(systemPrompt, userMessage, options);
+      }
+      return result;
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    // Primary: OpenAI
+    if (LLM_API_KEY) {
+      const result = await callOpenAI(systemPrompt, userMessage, options);
+      if (result.success) return result;
+      // Fallback to Gemini if OpenAI fails
+      if (GEMINI_API_KEY) {
+        console.log('OpenAI failed, trying Gemini fallback...');
+        return await callGemini(systemPrompt, userMessage, options);
+      }
+      return result;
+    }
 
-    return { success: true, content, usage: data.usage };
+    return { success: false, error: 'No LLM provider available', fallback: true };
   } catch (error) {
+    console.error('LLM call failed:', error.message);
     return { success: false, error: error.message, fallback: true };
   }
 }
@@ -223,6 +316,7 @@ Return ONLY a JSON object:
 
 module.exports = {
   isLLMConfigured,
+  getProviderInfo,
   callLLM,
   parseExpenseWithLLM,
   generateInsightsWithLLM,
