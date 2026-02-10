@@ -6,9 +6,8 @@
  */
 
 const db = require('../config/database');
-const { formatCurrency } = require('./currency');
 
-async function exportExpensesCSV(userId, { startDate, endDate, currency } = {}) {
+async function exportExpensesCSV(userId, { startDate, endDate } = {}) {
   let sql = `SELECT e.amount, e.description, e.merchant, e.expense_date, e.payment_method,
                     e.source, e.confidence_score, c.name as category
              FROM expenses e LEFT JOIN categories c ON e.category_id = c.id

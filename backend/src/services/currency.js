@@ -51,7 +51,7 @@ function convert(amount, fromCurrency, toCurrency) {
 
   // Convert to USD first, then to target
   const usdAmount = amount / fromRate;
-  return Math.round(usdAmount * toRate * 100) / 100;
+  return Math.round((amount * toRate / fromRate) * 100) / 100;
 }
 
 function formatCurrency(amount, currencyCode) {

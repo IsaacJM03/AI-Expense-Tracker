@@ -77,8 +77,6 @@ function parseReceiptText(ocrText) {
       const parsed = new Date(match[1]);
       if (!isNaN(parsed.getTime())) {
         date = parsed.toISOString().split('T')[0];
-      } else {
-        date = match[1]; // Store raw date string
       }
       break;
     }

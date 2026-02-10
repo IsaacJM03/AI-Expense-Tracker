@@ -25,9 +25,8 @@ export default function SeasonalScreen() {
   };
 
   const renderDayOfWeekBar = (item) => {
-    const maxWidth = 80;
     const absVs = Math.abs(item.vsAverage);
-    const width = Math.min(absVs, 100) * (maxWidth / 100);
+    const width = Math.min(absVs, 100);
     const isHigh = item.vsAverage > 0;
 
     return (
