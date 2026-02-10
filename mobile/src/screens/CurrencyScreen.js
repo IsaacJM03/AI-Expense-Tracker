@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -45,7 +45,6 @@ export default function CurrencyScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>💱 Multi-Currency</Text>
       <Text style={styles.subtitle}>Current: {currentCurrency}</Text>
 
       <View style={styles.card}>
@@ -75,17 +74,16 @@ export default function CurrencyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 16 },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
   subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 20 },
-  card: { backgroundColor: COLORS.surface, borderRadius: 16, overflow: 'hidden' },
+  card: { ...GLASS_STYLE, overflow: 'hidden' },
   currencyRow: {
     flexDirection: 'row', alignItems: 'center', padding: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder,
   },
-  currencyActive: { backgroundColor: `${COLORS.primary}10` },
-  currencyLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 80 },
-  currencySymbol: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
+  currencyActive: { backgroundColor: COLORS.glassHighlight },
+  currencyLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, width: 80 },
+  currencySymbol: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   currencyCode: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
   currencyRate: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
-  currentBadge: { fontSize: FONT_SIZES.lg, color: COLORS.primary },
+  currentBadge: { fontSize: FONT_SIZES.lg, color: COLORS.primary, fontWeight: '700' },
 });

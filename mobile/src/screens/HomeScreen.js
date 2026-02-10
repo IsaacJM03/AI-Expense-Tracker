@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function HomeScreen({ navigation }) {
@@ -46,38 +46,46 @@ export default function HomeScreen({ navigation }) {
   const totalSpent = summary?.summary?.reduce((sum, s) => sum + parseFloat(s.total || 0), 0) || 0;
 
   const renderExpense = ({ item }) => (
-    <TouchableOpacity style={styles.expenseItem} onPress={() => navigation.navigate('ExpenseDetail', { expense: item })}>
+    <View style={styles.expenseItem}>
       <View style={styles.expenseLeft}>
-        <Text style={styles.expenseIcon}>{item.category_icon || '📦'}</Text>
-        <View>
-          <Text style={styles.expenseDesc}>{item.description || item.category_name || 'Expense'}</Text>
+        <View style={styles.expenseIconContainer}>
+          <Text style={styles.expenseIcon}>{item.category_icon || '📦'}</Text>
+        </View>
+        <View style={styles.expenseInfo}>
+          <Text style={styles.expenseDesc} numberOfLines={1}>{item.description || item.category_name || 'Expense'}</Text>
           <Text style={styles.expenseDate}>{new Date(item.expense_date).toLocaleDateString()}</Text>
         </View>
       </View>
       <Text style={styles.expenseAmount}>-{parseFloat(item.amount).toLocaleString()}</Text>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* Summary Card */}
+      {/* Hero Summary */}
       <View style={styles.summaryCard}>
         <Text style={styles.summaryLabel}>This Month</Text>
         <Text style={styles.summaryAmount}>{totalSpent.toLocaleString()}</Text>
-        <Text style={styles.summarySubtext}>spent across {expenses.length} transactions</Text>
+        <View style={styles.summaryMeta}>
+          <View style={styles.summaryDot} />
+          <Text style={styles.summarySubtext}>{expenses.length} transactions</Text>
+        </View>
       </View>
 
       {/* Quick Entry */}
       <View style={styles.quickEntry}>
-        <TextInput
-          style={styles.quickInput}
-          placeholder='Quick add: "2000 lunch" or "🍔 500"'
-          value={quickText}
-          onChangeText={setQuickText}
-          onSubmitEditing={handleQuickEntry}
-          returnKeyType="send"
-          placeholderTextColor={COLORS.textSecondary}
-        />
+        <View style={styles.quickInputContainer}>
+          <Text style={styles.quickIcon}>⚡</Text>
+          <TextInput
+            style={styles.quickInput}
+            placeholder='Quick: "2000 lunch" or "🍔 500"'
+            value={quickText}
+            onChangeText={setQuickText}
+            onSubmitEditing={handleQuickEntry}
+            returnKeyType="send"
+            placeholderTextColor={COLORS.textTertiary}
+          />
+        </View>
         <TouchableOpacity style={styles.quickButton} onPress={handleQuickEntry}>
           <Text style={styles.quickButtonText}>+</Text>
         </TouchableOpacity>
@@ -88,12 +96,12 @@ export default function HomeScreen({ navigation }) {
         data={expenses}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderExpense}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📝</Text>
             <Text style={styles.emptyText}>No expenses yet</Text>
-            <Text style={styles.emptySubtext}>Use the quick entry above to add your first expense</Text>
+            <Text style={styles.emptySubtext}>Use the quick entry above{'\n'}to add your first expense</Text>
           </View>
         }
         contentContainerStyle={expenses.length === 0 && styles.emptyContainer}
@@ -105,32 +113,48 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   summaryCard: {
-    backgroundColor: COLORS.primary, margin: 16, borderRadius: 16, padding: 24, alignItems: 'center',
+    margin: 16, borderRadius: 24, padding: 28, alignItems: 'center',
+    backgroundColor: COLORS.primary,
   },
-  summaryLabel: { color: 'rgba(255,255,255,0.8)', fontSize: FONT_SIZES.sm },
-  summaryAmount: { color: '#fff', fontSize: 36, fontWeight: 'bold', marginVertical: 4 },
-  summarySubtext: { color: 'rgba(255,255,255,0.7)', fontSize: FONT_SIZES.xs },
-  quickEntry: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, gap: 8 },
+  summaryLabel: { color: 'rgba(255,255,255,0.7)', fontSize: FONT_SIZES.sm, fontWeight: '500', letterSpacing: 1, textTransform: 'uppercase' },
+  summaryAmount: { color: '#fff', fontSize: FONT_SIZES.hero, fontWeight: '800', marginVertical: 4, letterSpacing: -2 },
+  summaryMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  summaryDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
+  summarySubtext: { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.xs },
+  quickEntry: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12, gap: 10 },
+  quickInputContainer: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    ...GLASS_STYLE,
+    paddingHorizontal: 14,
+  },
+  quickIcon: { fontSize: 14, marginRight: 8 },
   quickInput: {
-    flex: 1, backgroundColor: COLORS.surface, borderRadius: 12, padding: 14,
-    fontSize: FONT_SIZES.md, borderWidth: 1, borderColor: COLORS.border, color: COLORS.text,
+    flex: 1, paddingVertical: 13,
+    fontSize: FONT_SIZES.md, color: COLORS.text,
   },
   quickButton: {
-    backgroundColor: COLORS.secondary, width: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.secondary, width: 48, height: 48, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
   },
-  quickButtonText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+  quickButtonText: { color: '#fff', fontSize: 22, fontWeight: '600' },
   expenseItem: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surface, marginHorizontal: 16, marginBottom: 8, padding: 16, borderRadius: 12,
+    ...GLASS_STYLE,
+    marginHorizontal: 16, marginBottom: 8, padding: 14,
   },
-  expenseLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  expenseIcon: { fontSize: 24 },
+  expenseLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  expenseIconContainer: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.glassHighlight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  expenseIcon: { fontSize: 18 },
+  expenseInfo: { flex: 1 },
   expenseDesc: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.text },
   expenseDate: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 2 },
-  expenseAmount: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.danger },
-  empty: { alignItems: 'center', padding: 48 },
+  expenseAmount: { fontSize: FONT_SIZES.md, fontWeight: '700', color: COLORS.danger },
+  empty: { alignItems: 'center', padding: 60 },
   emptyContainer: { flexGrow: 1 },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyIcon: { fontSize: 48, marginBottom: 16, opacity: 0.6 },
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
-  emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
+  emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function InsightsScreen() {
@@ -33,7 +33,7 @@ export default function InsightsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
       {/* Forecast Card */}
       {forecasts?.forecast && (
         <View style={styles.card}>
@@ -63,8 +63,8 @@ export default function InsightsScreen() {
 
       {/* Safe to Spend */}
       {forecasts?.safeToSpend && (
-        <View style={[styles.card, { backgroundColor: COLORS.secondary }]}>
-          <Text style={[styles.cardTitle, { color: '#fff' }]}>💚 Safe to Spend</Text>
+        <View style={styles.safeCard}>
+          <Text style={styles.safeTitle}>💚 Safe to Spend</Text>
           <Text style={styles.safeAmount}>{Math.round(forecasts.safeToSpend.safePerDay).toLocaleString()}</Text>
           <Text style={styles.safeLabel}>per day for the rest of the month</Text>
         </View>
@@ -78,12 +78,17 @@ export default function InsightsScreen() {
             <View key={i} style={styles.riskItem}>
               <View style={styles.riskHeader}>
                 <Text style={styles.riskName}>{risk.categoryName}</Text>
-                <Text style={[styles.riskBadge, { backgroundColor: risk.riskLevel === 'high' ? COLORS.danger : risk.riskLevel === 'medium' ? COLORS.warning : COLORS.success }]}>
-                  {risk.riskLevel.toUpperCase()}
-                </Text>
+                <View style={[styles.riskBadge, {
+                  backgroundColor: risk.riskLevel === 'high' ? COLORS.danger : risk.riskLevel === 'medium' ? COLORS.warning : COLORS.success
+                }]}>
+                  <Text style={styles.riskBadgeText}>{risk.riskLevel.toUpperCase()}</Text>
+                </View>
               </View>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(risk.percentUsed, 100)}%`, backgroundColor: risk.riskLevel === 'high' ? COLORS.danger : COLORS.primary }]} />
+                <View style={[styles.progressFill, {
+                  width: `${Math.min(risk.percentUsed, 100)}%`,
+                  backgroundColor: risk.riskLevel === 'high' ? COLORS.danger : COLORS.primary
+                }]} />
               </View>
               <Text style={styles.riskText}>{risk.percentUsed}% used • {risk.willOverrun ? 'Will overrun' : 'On track'}</Text>
             </View>
@@ -127,26 +132,38 @@ export default function InsightsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  card: { backgroundColor: COLORS.surface, margin: 16, marginBottom: 0, borderRadius: 16, padding: 20 },
+  card: {
+    ...GLASS_STYLE,
+    margin: 16, marginBottom: 0, padding: 20,
+  },
   cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
   forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   forecastItem: { width: '46%' },
-  forecastLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 4 },
-  forecastValue: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
-  safeAmount: { fontSize: 36, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
-  safeLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 4 },
+  forecastLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  forecastValue: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
+  safeCard: {
+    margin: 16, marginBottom: 0, borderRadius: 20, padding: 24, alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+  },
+  safeTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: '#fff' },
+  safeAmount: { fontSize: 40, fontWeight: '800', color: '#fff', letterSpacing: -1 },
+  safeLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   riskItem: { marginBottom: 16 },
   riskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   riskName: { fontSize: FONT_SIZES.md, fontWeight: '500', color: COLORS.text },
-  riskBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, color: '#fff', fontSize: FONT_SIZES.xs, overflow: 'hidden' },
-  progressBar: { height: 8, backgroundColor: COLORS.border, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
-  riskText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 4 },
-  insightItem: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  riskBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  riskBadgeText: { color: '#fff', fontSize: FONT_SIZES.xs, fontWeight: '700', letterSpacing: 0.5 },
+  progressBar: { height: 6, backgroundColor: COLORS.glass, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3 },
+  riskText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 6 },
+  insightItem: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder },
   insightTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
   insightDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
-  recItem: { marginBottom: 16, padding: 12, backgroundColor: COLORS.background, borderRadius: 12 },
+  recItem: {
+    marginBottom: 12, padding: 14, borderRadius: 14,
+    backgroundColor: COLORS.glass,
+  },
   recTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
   recDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
-  recSavings: { fontSize: FONT_SIZES.sm, color: COLORS.secondary, fontWeight: '600', marginTop: 8 },
+  recSavings: { fontSize: FONT_SIZES.sm, color: COLORS.secondary, fontWeight: '700', marginTop: 8 },
 });

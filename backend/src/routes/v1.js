@@ -7,6 +7,10 @@ const {
   getCurrencies, convertCurrency,
   getSeasonalAnalysis,
   processReceipt,
+  smartParse,
+  smartCategorize,
+  smartInsights,
+  aiStatus,
 } = require('../controllers/v1Controller');
 
 const router = express.Router();
@@ -14,6 +18,9 @@ const router = express.Router();
 // Currency endpoints (public - no auth needed for rates)
 router.get('/currencies', getCurrencies);
 router.get('/currencies/convert', convertCurrency);
+
+// AI status (public)
+router.get('/ai/status', aiStatus);
 
 // All below require authentication
 router.use(authenticate);
@@ -31,5 +38,18 @@ router.post('/ocr/receipt', [
   body('ocrText').notEmpty().withMessage('OCR text is required'),
   validate,
 ], processReceipt);
+
+// LLM-powered endpoints
+router.post('/ai/parse', [
+  body('text').notEmpty().withMessage('Expense text is required'),
+  validate,
+], smartParse);
+
+router.post('/ai/categorize', [
+  body('description').notEmpty().withMessage('Description is required'),
+  validate,
+], smartCategorize);
+
+router.get('/ai/insights', smartInsights);
 
 module.exports = router;

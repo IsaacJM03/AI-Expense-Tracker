@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function SeasonalScreen() {
@@ -46,8 +46,7 @@ export default function SeasonalScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      <Text style={styles.title}>📅 Seasonal Analysis</Text>
+    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
       <Text style={styles.subtitle}>Discover your spending patterns over time</Text>
 
       {/* Day of Week Pattern */}
@@ -133,33 +132,38 @@ export default function SeasonalScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, margin: 16, marginBottom: 4 },
-  subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginHorizontal: 16, marginBottom: 16 },
-  card: { backgroundColor: COLORS.surface, margin: 16, marginTop: 0, borderRadius: 16, padding: 20, marginBottom: 16 },
+  subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginHorizontal: 16, marginTop: 8, marginBottom: 16 },
+  card: {
+    ...GLASS_STYLE,
+    margin: 16, marginTop: 0, padding: 20, marginBottom: 16,
+  },
   cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
   cardDesc: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 16 },
   cardInsight: { fontSize: FONT_SIZES.md, color: COLORS.text, lineHeight: 22, marginTop: 8 },
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
   barLabel: { width: 36, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: '500' },
-  barContainer: { flex: 1, height: 16, backgroundColor: COLORS.border, borderRadius: 8, overflow: 'hidden' },
-  bar: { height: '100%', borderRadius: 8 },
-  barValue: { width: 45, fontSize: FONT_SIZES.xs, fontWeight: '600', textAlign: 'right' },
+  barContainer: { flex: 1, height: 14, backgroundColor: COLORS.glass, borderRadius: 7, overflow: 'hidden' },
+  bar: { height: '100%', borderRadius: 7 },
+  barValue: { width: 45, fontSize: FONT_SIZES.xs, fontWeight: '700', textAlign: 'right' },
   monthRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 8,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder,
   },
   monthName: { width: 40, fontSize: FONT_SIZES.sm, color: COLORS.text, fontWeight: '500' },
   monthAmount: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.text },
-  monthVs: { fontSize: FONT_SIZES.sm, fontWeight: '600' },
+  monthVs: { fontSize: FONT_SIZES.sm, fontWeight: '700' },
   payCycleDetails: { flexDirection: 'row', marginTop: 16, gap: 12 },
-  payCycleStat: { flex: 1, backgroundColor: COLORS.background, borderRadius: 12, padding: 16, alignItems: 'center' },
+  payCycleStat: {
+    flex: 1, borderRadius: 14, padding: 16, alignItems: 'center',
+    backgroundColor: COLORS.glass,
+  },
   statLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 4 },
   statValue: { fontSize: FONT_SIZES.lg, fontWeight: '700' },
-  catRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  catRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder },
   catName: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text },
   catPeak: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 2 },
-  empty: { alignItems: 'center', padding: 48 },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  empty: { alignItems: 'center', padding: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 16, opacity: 0.6 },
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
   emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
 });

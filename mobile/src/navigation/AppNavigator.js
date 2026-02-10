@@ -2,9 +2,9 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { COLORS } from '../constants/theme';
+import { COLORS, FONT_SIZES } from '../constants/theme';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -23,7 +23,12 @@ const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
   const icons = { Home: '🏠', Insights: '📊', Budgets: '💰', Profile: '👤' };
-  return <Text style={{ fontSize: focused ? 24 : 20, opacity: focused ? 1 : 0.5 }}>{icons[label] || '📋'}</Text>;
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={{ fontSize: focused ? 22 : 18, opacity: focused ? 1 : 0.4 }}>{icons[label] || '📋'}</Text>
+      {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 4 }} />}
+    </View>
+  );
 }
 
 function MainTabs() {
@@ -32,9 +37,19 @@ function MainTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        headerStyle: { backgroundColor: COLORS.surface },
+        tabBarInactiveTintColor: COLORS.textTertiary,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: COLORS.backgroundSecondary,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.glassBorder,
+          paddingTop: 8,
+          height: 80,
+        },
+        headerStyle: { backgroundColor: COLORS.background },
         headerTintColor: COLORS.text,
+        headerTitleStyle: { fontWeight: '700' },
+        headerShadowVisible: false,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Expenses' }} />
@@ -44,6 +59,13 @@ function MainTabs() {
     </Tab.Navigator>
   );
 }
+
+const stackScreenOptions = {
+  headerStyle: { backgroundColor: COLORS.background },
+  headerTintColor: COLORS.text,
+  headerTitleStyle: { fontWeight: '600' },
+  headerShadowVisible: false,
+};
 
 export default function AppNavigator() {
   const { isAuthenticated, loading } = useAuth();
@@ -58,11 +80,11 @@ export default function AppNavigator() {
         {isAuthenticated ? (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: true, title: 'Add Expense', presentation: 'modal' }} />
-            <Stack.Screen name="ScanReceipt" component={ScanReceiptScreen} options={{ headerShown: true, title: 'Scan Receipt', presentation: 'modal' }} />
-            <Stack.Screen name="Export" component={ExportScreen} options={{ headerShown: true, title: 'Export Data', presentation: 'modal' }} />
-            <Stack.Screen name="Seasonal" component={SeasonalScreen} options={{ headerShown: true, title: 'Seasonal Analysis', presentation: 'modal' }} />
-            <Stack.Screen name="Currency" component={CurrencyScreen} options={{ headerShown: true, title: 'Currency', presentation: 'modal' }} />
+            <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: true, title: 'Add Expense', presentation: 'modal', ...stackScreenOptions }} />
+            <Stack.Screen name="ScanReceipt" component={ScanReceiptScreen} options={{ headerShown: true, title: 'Scan Receipt', presentation: 'modal', ...stackScreenOptions }} />
+            <Stack.Screen name="Export" component={ExportScreen} options={{ headerShown: true, title: 'Export Data', presentation: 'modal', ...stackScreenOptions }} />
+            <Stack.Screen name="Seasonal" component={SeasonalScreen} options={{ headerShown: true, title: 'Seasonal Analysis', presentation: 'modal', ...stackScreenOptions }} />
+            <Stack.Screen name="Currency" component={CurrencyScreen} options={{ headerShown: true, title: 'Currency', presentation: 'modal', ...stackScreenOptions }} />
           </>
         ) : (
           <>

@@ -201,6 +201,29 @@ class ApiService {
     });
   }
 
+  // V1: AI/LLM endpoints
+  async getAIStatus() {
+    return this.request('/v1/ai/status');
+  }
+
+  async smartParse(text) {
+    return this.request('/v1/ai/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async smartCategorize(description, merchant) {
+    return this.request('/v1/ai/categorize', {
+      method: 'POST',
+      body: JSON.stringify({ description, merchant }),
+    });
+  }
+
+  async smartInsights() {
+    return this.request('/v1/ai/insights');
+  }
+
   // Profile update
   async updateProfile(data) {
     return this.request('/auth/profile', {

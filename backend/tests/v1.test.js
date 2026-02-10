@@ -179,4 +179,67 @@ describe('V1 API Routes', () => {
     const res = await request(app).post('/api/v1/ocr/receipt').send({ ocrText: 'test' });
     expect(res.status).toBe(401);
   });
+
+  test('GET /api/v1/ai/status returns AI configuration', async () => {
+    const res = await request(app).get('/api/v1/ai/status');
+    expect(res.status).toBe(200);
+    expect(res.body.features).toBeDefined();
+    expect(res.body.features.smartParse).toBe(true);
+    expect(res.body.features.smartCategorize).toBe(true);
+    expect(res.body.features.smartInsights).toBe(true);
+    expect(res.body.fallback).toBe('rule-based');
+  });
+
+  test('POST /api/v1/ai/parse without auth returns 401', async () => {
+    const res = await request(app).post('/api/v1/ai/parse').send({ text: '2000 lunch' });
+    expect(res.status).toBe(401);
+  });
+
+  test('POST /api/v1/ai/categorize without auth returns 401', async () => {
+    const res = await request(app).post('/api/v1/ai/categorize').send({ description: 'lunch' });
+    expect(res.status).toBe(401);
+  });
+
+  test('GET /api/v1/ai/insights without auth returns 401', async () => {
+    const res = await request(app).get('/api/v1/ai/insights');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('LLM Service', () => {
+  const {
+    isLLMConfigured,
+    parseExpenseWithLLM,
+    predictCategoryWithLLM,
+    generateInsightsWithLLM,
+    cleanOCRWithLLM,
+  } = require('../src/services/ai/llmService');
+
+  test('isLLMConfigured returns false when no API key set', () => {
+    expect(isLLMConfigured()).toBe(false);
+  });
+
+  test('parseExpenseWithLLM returns fallback when not configured', async () => {
+    const result = await parseExpenseWithLLM('2000 lunch');
+    expect(result.success).toBe(false);
+    expect(result.fallback).toBe(true);
+  });
+
+  test('predictCategoryWithLLM returns fallback when not configured', async () => {
+    const result = await predictCategoryWithLLM('lunch', 'Java House');
+    expect(result.success).toBe(false);
+    expect(result.fallback).toBe(true);
+  });
+
+  test('generateInsightsWithLLM returns fallback when not configured', async () => {
+    const result = await generateInsightsWithLLM({ totalSpent: 50000 });
+    expect(result.success).toBe(false);
+    expect(result.fallback).toBe(true);
+  });
+
+  test('cleanOCRWithLLM returns fallback when not configured', async () => {
+    const result = await cleanOCRWithLLM('Java House\nCoffee 350\nTotal: 350');
+    expect(result.success).toBe(false);
+    expect(result.fallback).toBe(true);
+  });
 });

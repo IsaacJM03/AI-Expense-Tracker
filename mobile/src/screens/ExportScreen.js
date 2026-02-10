@@ -1,21 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Share, ActivityIndicator } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function ExportScreen() {
   const [loading, setLoading] = useState(false);
-  const [exportData, setExportData] = useState(null);
 
   const handleExportExpenses = async () => {
     setLoading(true);
     try {
       const data = await api.exportExpenses();
-      setExportData({ type: 'expenses', data });
-      await Share.share({
-        message: data,
-        title: 'Expenses Export',
-      });
+      await Share.share({ message: data, title: 'Expenses Export' });
     } catch (err) {
       Alert.alert('Export Failed', err.message);
     } finally {
@@ -27,11 +22,7 @@ export default function ExportScreen() {
     setLoading(true);
     try {
       const data = await api.exportIncomes();
-      setExportData({ type: 'incomes', data });
-      await Share.share({
-        message: data,
-        title: 'Incomes Export',
-      });
+      await Share.share({ message: data, title: 'Incomes Export' });
     } catch (err) {
       Alert.alert('Export Failed', err.message);
     } finally {
@@ -44,10 +35,7 @@ export default function ExportScreen() {
     try {
       const report = await api.exportAll();
       const combined = `=== EXPENSES ===\n${report.expenses}\n\n=== INCOMES ===\n${report.incomes}\n\nGenerated: ${report.generatedAt}`;
-      await Share.share({
-        message: combined,
-        title: 'Full Financial Report',
-      });
+      await Share.share({ message: combined, title: 'Full Financial Report' });
     } catch (err) {
       Alert.alert('Export Failed', err.message);
     } finally {
@@ -57,7 +45,6 @@ export default function ExportScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>📤 Export Your Data</Text>
       <Text style={styles.subtitle}>Your data belongs to you. Export anytime in CSV format.</Text>
 
       <View style={styles.card}>
@@ -93,16 +80,16 @@ export default function ExportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 16 },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
   subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 24 },
   card: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 20, marginBottom: 16, alignItems: 'center',
+    ...GLASS_STYLE,
+    padding: 24, marginBottom: 16, alignItems: 'center',
   },
-  cardIcon: { fontSize: 40, marginBottom: 12 },
+  cardIcon: { fontSize: 40, marginBottom: 12, opacity: 0.8 },
   cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
   cardDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 16 },
   exportButton: {
-    backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32, alignItems: 'center',
+    backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 32, alignItems: 'center',
   },
   exportButtonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
 });

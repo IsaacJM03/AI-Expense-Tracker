@@ -2,9 +2,18 @@ const { exportExpensesCSV, exportIncomesCSV, exportFullReport } = require('../se
 const { getSupportedCurrencies, convert } = require('../services/currency');
 const { getFullSeasonalAnalysis } = require('../services/ai/seasonalAnalysis');
 const { parseReceiptText } = require('../services/ai/ocrParser');
+const { parseExpense } = require('../services/ai/expenseParser');
+const { generateInsights } = require('../services/ai/insights');
 const Expense = require('../models/Expense');
 const Category = require('../models/Category');
 const { categorizeExpense } = require('../services/ai/categorization');
+const {
+  isLLMConfigured,
+  parseExpenseWithLLM,
+  predictCategoryWithLLM,
+  generateInsightsWithLLM,
+  cleanOCRWithLLM,
+} = require('../services/ai/llmService');
 
 // Data Export
 async function exportExpenses(req, res, next) {
@@ -77,7 +86,7 @@ async function getSeasonalAnalysis(req, res, next) {
   }
 }
 
-// OCR Receipt Processing
+// OCR Receipt Processing (with LLM fallback)
 async function processReceipt(req, res, next) {
   try {
     const { ocrText, imageBase64 } = req.body;
@@ -86,7 +95,31 @@ async function processReceipt(req, res, next) {
       return res.status(400).json({ error: 'ocrText is required. Send the OCR-extracted text from the receipt image.' });
     }
 
-    const parsed = parseReceiptText(ocrText);
+    // Try LLM-enhanced OCR parsing first
+    let parsed;
+    let parseSource = 'rule-based';
+
+    if (isLLMConfigured()) {
+      const llmResult = await cleanOCRWithLLM(ocrText);
+      if (llmResult.success) {
+        parsed = {
+          success: true,
+          data: {
+            merchant: llmResult.parsed.merchant,
+            total: llmResult.parsed.total,
+            date: llmResult.parsed.date,
+            lineItems: llmResult.parsed.lineItems || [],
+            confidence: llmResult.parsed.confidence || 0.85,
+          },
+        };
+        parseSource = 'llm';
+      }
+    }
+
+    // Fallback to rule-based parser
+    if (!parsed) {
+      parsed = parseReceiptText(ocrText);
+    }
 
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error, parsed });
@@ -132,6 +165,7 @@ async function processReceipt(req, res, next) {
     res.status(201).json({
       expense,
       parsed: parsed.data,
+      parseSource,
       needsConfirmation: confidence < 0.8,
     });
   } catch (err) {
@@ -139,9 +173,113 @@ async function processReceipt(req, res, next) {
   }
 }
 
+// LLM-powered smart parsing
+async function smartParse(req, res, next) {
+  try {
+    const { text } = req.body;
+
+    // Try LLM first
+    if (isLLMConfigured()) {
+      const llmResult = await parseExpenseWithLLM(text);
+      if (llmResult.success) {
+        return res.json({
+          ...llmResult.parsed,
+          source: 'llm',
+        });
+      }
+    }
+
+    // Fallback to rule-based
+    const parsed = parseExpense(text);
+    res.json({
+      ...parsed,
+      source: 'rule-based',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// LLM-powered smart categorization
+async function smartCategorize(req, res, next) {
+  try {
+    const { description, merchant } = req.body;
+
+    // Try LLM first
+    if (isLLMConfigured()) {
+      const llmResult = await predictCategoryWithLLM(description, merchant);
+      if (llmResult.success) {
+        return res.json({
+          category: llmResult.category,
+          confidence: llmResult.confidence,
+          reasoning: llmResult.reasoning,
+          source: 'llm',
+        });
+      }
+    }
+
+    // Fallback to rule-based
+    const result = await categorizeExpense(req.user.id, description, merchant);
+    res.json({
+      ...result,
+      source: result.method,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// LLM-powered smart insights
+async function smartInsights(req, res, next) {
+  try {
+    // Try LLM first for enhanced insights
+    if (isLLMConfigured()) {
+      // Build spending profile for LLM
+      const ruleBasedInsights = await generateInsights(req.user.id);
+      const llmResult = await generateInsightsWithLLM({
+        ruleBasedInsights,
+        userId: 'anonymous', // Don't send PII
+      });
+
+      if (llmResult.success) {
+        return res.json({
+          insights: llmResult.insights,
+          source: 'llm',
+        });
+      }
+    }
+
+    // Fallback to rule-based
+    const insights = await generateInsights(req.user.id);
+    res.json({
+      insights,
+      source: 'rule-based',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// AI status endpoint
+async function aiStatus(req, res) {
+  res.json({
+    llmConfigured: isLLMConfigured(),
+    features: {
+      smartParse: true,
+      smartCategorize: true,
+      smartInsights: true,
+      ocrEnhanced: true,
+    },
+    model: isLLMConfigured() ? (process.env.LLM_MODEL || 'gpt-4o') : null,
+    fallback: 'rule-based',
+  });
+}
+
 module.exports = {
   exportExpenses, exportIncomes, exportAll,
   getCurrencies, convertCurrency,
   getSeasonalAnalysis,
   processReceipt,
+  smartParse, smartCategorize, smartInsights,
+  aiStatus,
 };

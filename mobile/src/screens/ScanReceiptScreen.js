@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function ScanReceiptScreen({ navigation }) {
@@ -36,9 +36,8 @@ export default function ScanReceiptScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>📷 Scan Receipt</Text>
       <Text style={styles.subtitle}>
-        Paste receipt text below or use camera capture (coming soon)
+        Paste receipt text below or use camera capture
       </Text>
 
       {!result ? (
@@ -51,7 +50,7 @@ export default function ScanReceiptScreen({ navigation }) {
             multiline
             numberOfLines={10}
             textAlignVertical="top"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={COLORS.textTertiary}
           />
 
           <TouchableOpacity style={styles.processButton} onPress={handleProcess} disabled={loading}>
@@ -66,7 +65,7 @@ export default function ScanReceiptScreen({ navigation }) {
             <Text style={styles.cameraIcon}>📸</Text>
             <Text style={styles.cameraTitle}>Camera Capture</Text>
             <Text style={styles.cameraDesc}>
-              Camera-based OCR scanning will be available in the next update. For now, you can paste receipt text above.
+              Camera-based OCR scanning coming in the next update
             </Text>
           </View>
         </>
@@ -103,12 +102,12 @@ export default function ScanReceiptScreen({ navigation }) {
 
           <View style={styles.confidenceRow}>
             <Text style={styles.resultLabel}>Confidence</Text>
-            <Text style={[styles.confidenceBadge, {
+            <View style={[styles.confidenceBadge, {
               backgroundColor: result.parsed.confidence >= 0.8 ? COLORS.success
                 : result.parsed.confidence >= 0.6 ? COLORS.warning : COLORS.danger
             }]}>
-              {Math.round(result.parsed.confidence * 100)}%
-            </Text>
+              <Text style={styles.confidenceText}>{Math.round(result.parsed.confidence * 100)}%</Text>
+            </View>
           </View>
 
           {result.needsConfirmation && (
@@ -132,51 +131,52 @@ export default function ScanReceiptScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 16 },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
   subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 20 },
   textArea: {
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 12, padding: 16, fontSize: FONT_SIZES.md, minHeight: 200,
+    ...GLASS_STYLE,
+    padding: 16, fontSize: FONT_SIZES.md, minHeight: 200,
     color: COLORS.text, marginBottom: 16,
   },
   processButton: {
-    backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 24,
+    backgroundColor: COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 24,
   },
   processButtonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
   cameraCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 24, alignItems: 'center',
-    borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed',
+    ...GLASS_STYLE,
+    padding: 24, alignItems: 'center',
+    borderStyle: 'dashed',
   },
-  cameraIcon: { fontSize: 40, marginBottom: 8 },
+  cameraIcon: { fontSize: 40, marginBottom: 8, opacity: 0.6 },
   cameraTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 4 },
-  cameraDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center' },
-  resultCard: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 20 },
+  cameraDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textTertiary, textAlign: 'center' },
+  resultCard: {
+    ...GLASS_STYLE,
+    padding: 20,
+  },
   resultTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
   resultRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder,
   },
   resultLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
   resultValue: { fontSize: FONT_SIZES.md, color: COLORS.text, fontWeight: '500' },
   resultAmount: { fontSize: FONT_SIZES.xl, color: COLORS.primary, fontWeight: '700' },
-  lineItems: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  lineItems: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder },
   lineItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   lineItemName: { fontSize: FONT_SIZES.sm, color: COLORS.text },
   lineItemAmount: { fontSize: FONT_SIZES.sm, color: COLORS.text, fontWeight: '500' },
   confidenceRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12,
   },
-  confidenceBadge: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, color: '#fff',
-    fontSize: FONT_SIZES.sm, fontWeight: '600', overflow: 'hidden',
-  },
+  confidenceBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10 },
+  confidenceText: { color: '#fff', fontSize: FONT_SIZES.sm, fontWeight: '700' },
   confirmNote: { fontSize: FONT_SIZES.sm, color: COLORS.warning, marginTop: 8, textAlign: 'center' },
   actionRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
   editButton: {
-    flex: 1, padding: 14, borderRadius: 12, borderWidth: 1,
-    borderColor: COLORS.border, alignItems: 'center',
+    flex: 1, padding: 14, borderRadius: 14, alignItems: 'center',
+    ...GLASS_STYLE,
   },
   editButtonText: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  confirmButton: { flex: 2, padding: 14, borderRadius: 12, backgroundColor: COLORS.secondary, alignItems: 'center' },
+  confirmButton: { flex: 2, padding: 14, borderRadius: 14, backgroundColor: COLORS.secondary, alignItems: 'center' },
   confirmButtonText: { fontSize: FONT_SIZES.md, color: '#fff', fontWeight: '600' },
 });

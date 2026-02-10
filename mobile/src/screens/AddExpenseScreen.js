@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function AddExpenseScreen({ navigation }) {
@@ -33,9 +33,7 @@ export default function AddExpenseScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Add Expense</Text>
-
-      <View style={styles.amountContainer}>
+      <View style={styles.amountSection}>
         <Text style={styles.currency}>KES</Text>
         <TextInput
           style={styles.amountInput}
@@ -44,25 +42,33 @@ export default function AddExpenseScreen({ navigation }) {
           onChangeText={setAmount}
           keyboardType="numeric"
           autoFocus
-          placeholderTextColor={COLORS.border}
+          placeholderTextColor={COLORS.textTertiary}
         />
       </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Description (e.g., lunch, groceries)"
-        value={description}
-        onChangeText={setDescription}
-        placeholderTextColor={COLORS.textSecondary}
-      />
+      <View style={styles.fields}>
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputIcon}>📝</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Description (e.g., lunch, groceries)"
+            value={description}
+            onChangeText={setDescription}
+            placeholderTextColor={COLORS.textTertiary}
+          />
+        </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Merchant (optional)"
-        value={merchant}
-        onChangeText={setMerchant}
-        placeholderTextColor={COLORS.textSecondary}
-      />
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputIcon}>🏪</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Merchant (optional)"
+            value={merchant}
+            onChangeText={setMerchant}
+            placeholderTextColor={COLORS.textTertiary}
+          />
+        </View>
+      </View>
 
       <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSubmit} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save Expense'}</Text>
@@ -74,17 +80,20 @@ export default function AddExpenseScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 24 },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.text, marginBottom: 32 },
-  amountContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, justifyContent: 'center' },
-  currency: { fontSize: FONT_SIZES.xl, color: COLORS.textSecondary, marginRight: 8 },
-  amountInput: { fontSize: 48, fontWeight: 'bold', color: COLORS.text, textAlign: 'center', minWidth: 100 },
-  input: {
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 12, padding: 16, fontSize: FONT_SIZES.md, marginBottom: 16, color: COLORS.text,
+  amountSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 32, justifyContent: 'center' },
+  currency: { fontSize: FONT_SIZES.xl, color: COLORS.textSecondary, marginRight: 8, fontWeight: '300' },
+  amountInput: { fontSize: FONT_SIZES.hero, fontWeight: '800', color: COLORS.text, textAlign: 'center', minWidth: 100, letterSpacing: -2 },
+  fields: { gap: 12, marginBottom: 24 },
+  inputContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    ...GLASS_STYLE,
+    paddingHorizontal: 14,
   },
+  inputIcon: { fontSize: 16, marginRight: 12 },
+  input: { flex: 1, paddingVertical: 16, fontSize: FONT_SIZES.md, color: COLORS.text },
   button: {
-    backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16,
+    backgroundColor: COLORS.primary, borderRadius: 20, padding: 17, alignItems: 'center',
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600', letterSpacing: 0.3 },
 });

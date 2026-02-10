@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants/theme';
+import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
@@ -32,34 +32,45 @@ export default function RegisterScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.content}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Start tracking your expenses intelligently</Text>
+        <View style={styles.heroSection}>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Start tracking your expenses intelligently</Text>
+        </View>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Display Name (optional)"
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholderTextColor={COLORS.textSecondary}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor={COLORS.textSecondary}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password (min 8 characters)"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor={COLORS.textSecondary}
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputIcon}>👤</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Display Name (optional)"
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholderTextColor={COLORS.textTertiary}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputIcon}>✉️</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholderTextColor={COLORS.textTertiary}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Password (min 8 characters)"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholderTextColor={COLORS.textTertiary}
+            />
+          </View>
           <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
             <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Account'}</Text>
           </TouchableOpacity>
@@ -76,18 +87,26 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  title: { fontSize: FONT_SIZES.xxl, fontWeight: 'bold', textAlign: 'center', color: COLORS.text, marginBottom: 8 },
-  subtitle: { fontSize: FONT_SIZES.md, textAlign: 'center', color: COLORS.textSecondary, marginBottom: 48 },
-  form: { gap: 16 },
+  heroSection: { alignItems: 'center', marginBottom: 40 },
+  title: { fontSize: FONT_SIZES.xxl, fontWeight: '800', color: COLORS.text, letterSpacing: -1 },
+  subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, marginTop: 8 },
+  form: { gap: 12 },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...GLASS_STYLE,
+    paddingHorizontal: 16,
+  },
+  inputIcon: { fontSize: 16, marginRight: 12 },
   input: {
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 12, padding: 16, fontSize: FONT_SIZES.md, color: COLORS.text,
+    flex: 1, paddingVertical: 16, fontSize: FONT_SIZES.md, color: COLORS.text,
   },
   button: {
-    backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8,
+    borderRadius: 20, padding: 17, alignItems: 'center', marginTop: 8,
+    backgroundColor: COLORS.primary,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
-  link: { textAlign: 'center', marginTop: 24, color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600', letterSpacing: 0.3 },
+  link: { textAlign: 'center', marginTop: 32, color: COLORS.textSecondary, fontSize: FONT_SIZES.sm },
   linkBold: { color: COLORS.primary, fontWeight: '600' },
 });
