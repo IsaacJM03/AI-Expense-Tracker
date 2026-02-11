@@ -14,6 +14,7 @@ const {
   smartCategorize,
   smartInsights,
   aiStatus,
+  chatWithLLM,
 } = require('../controllers/v1Controller');
 
 const router = express.Router();
@@ -49,8 +50,20 @@ router.get('/currencies/convert', convertCurrency);
 // AI status (public)
 router.get('/ai/status', aiStatus);
 
+// AI status (public)
+router.get('/ai/status', aiStatus);
+
 // All below require authentication
 router.use(authenticate);
+
+// Assistant permission management
+const { getAssistantPermission, grantAssistantPermission, revokeAssistantPermission } = require('../controllers/v1Controller');
+router.get('/ai/permission', getAssistantPermission);
+router.post('/ai/permission/grant', grantAssistantPermission);
+router.post('/ai/permission/revoke', revokeAssistantPermission);
+
+// Chat endpoint for interactive assistant (requires auth)
+router.post('/ai/chat', chatWithLLM);
 
 // Data export
 router.get('/export/expenses', exportExpenses);

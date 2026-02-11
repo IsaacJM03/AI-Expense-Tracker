@@ -453,28 +453,29 @@ export default function HomeScreen({ navigation, route }) {
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>This Month</Text>
                 <Text style={styles.summaryAmount}>{fmtCurrency(totalSpent)}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                  <View>
-                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Income</Text>
-                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency(incomeTotal)}</Text>
+                  <View style={styles.summarySeparator} />
+                  <View style={styles.summaryGrid}>
+                    <View style={styles.summaryGridItem}>
+                      <Text style={[styles.summaryLabel, { color: 'rgba(255,255,255,0.85)' }]}>Income</Text>
+                      <Text style={styles.summaryFigure}>{fmtCurrency(incomeTotal)}</Text>
+                    </View>
+
+                    <View style={[styles.summaryGridItem, styles.summaryDivider] }>
+                      <Text style={[styles.summaryLabel, { color: 'rgba(255,255,255,0.85)' }]}>Net</Text>
+                      <Text style={styles.summaryFigure}>{fmtCurrency((incomeTotal || 0) - (totalSpent || 0))}</Text>
+                    </View>
+
+                    <View style={styles.summaryGridItem}>
+                      <Text style={[styles.summaryLabel, { color: 'rgba(255,255,255,0.85)' }]}>Budgets</Text>
+                      <Text style={styles.summaryFigure}>{fmtCurrency(budgetTotal)}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Net</Text>
-                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency((incomeTotal || 0) - (totalSpent || 0))}</Text>
+                  <View style={styles.summaryMetaRow}>
+                    <View style={styles.summaryMetaItem}>
+                      <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
+                      <Text style={styles.summaryMetaText}>{txCount} transactions</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Budgets</Text>
-                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency(budgetTotal)}</Text>
-                  </View>
-                </View>
-                <View style={styles.summaryRow}>
-                  <View style={styles.summaryItem}>
-                    <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
-                    <Text style={styles.summaryItemText}>
-                      {txCount} transactions
-                    </Text>
-                  </View>
-                </View>
               </View>
         );
       })()}
@@ -675,6 +676,39 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     ...SHADOWS.medium,
   },
+  summarySeparator: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginVertical: 12,
+    borderRadius: 1,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  summaryGridItem: {
+    flexBasis: '32%',
+    alignItems: 'flex-start',
+  },
+  summaryDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.08)',
+    paddingLeft: 12,
+  },
+  summaryFigure: {
+    fontSize: 18,
+    fontFamily: FONTS.semiBold,
+    color: '#fff',
+    marginTop: 6,
+  },
+  summaryMetaRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  summaryMetaText: { fontSize: 13, fontFamily: FONTS.medium, color: 'rgba(255,255,255,0.9)' },
   summaryLabel: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.7)',

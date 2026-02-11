@@ -21,6 +21,8 @@ function replaceCurrencySymbols(text, currencyCode = 'KES') {
 }
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import ChatModal from '../components/ChatModal';
+import { TouchableOpacity } from 'react-native';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -71,6 +73,8 @@ export default function InsightsScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const [chatOpen, setChatOpen] = React.useState(false);
+
   // compute month-to-date income for display
   const monthlyIncome = React.useMemo(() => {
     if (!incomes || incomes.length === 0) return 0;
@@ -105,7 +109,12 @@ export default function InsightsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
+    <View style={styles.screenWrapper}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}
+      >
       {/* Forecast Card */}
       {forecasts?.forecast && (
         <View style={styles.card}>
@@ -119,7 +128,7 @@ export default function InsightsScreen() {
               <Text style={styles.forecastValue}>{Math.round(forecasts.forecast.currentSpend).toLocaleString()}</Text>
             </View>
             <View style={styles.forecastItem}>
-              <Text style={styles.forecastLabel}>Projected Total</Text>
+              <Text style={styles.forecastLabel}>Projected Total Spent</Text>
               <Text style={[styles.forecastValue, { color: COLORS.warning }]}>
                 {Math.round(forecasts.forecast.projectedTotal).toLocaleString()}
               </Text>
@@ -131,8 +140,15 @@ export default function InsightsScreen() {
             </View>
 
             <View style={styles.forecastItem}>
-              <Text style={styles.forecastLabel}>Net Projected</Text>
-              <Text style={styles.forecastValue}>{formatCurrency(Math.round((forecasts.forecast.projectedTotal || 0) - monthlyIncome), user?.currency)}</Text>
+              <Text style={styles.forecastLabel}>Net Projected Savings</Text>
+                {(() => {
+                  const projectedTotal = Number(forecasts.forecast.projectedTotal || 0);
+                  const netProjected = Math.round((monthlyIncome - projectedTotal) * 100) / 100;
+                  const netColor = netProjected >= 0 ? COLORS.success : COLORS.danger;
+                  return (
+                    <Text style={[styles.forecastValue, { color: netColor }]}>{formatCurrency(netProjected, user?.currency)}</Text>
+                  );
+                })()}
             </View>
 
             <View style={styles.forecastItem}>
@@ -154,7 +170,14 @@ export default function InsightsScreen() {
             <Ionicons name="shield-checkmark" size={20} color="#fff" />
             <Text style={styles.safeTitle}>Safe to Spend</Text>
           </View>
-          <Text style={styles.safeAmount}>{formatCurrency(Math.round(forecasts.safeToSpend.safePerDay), user?.currency)}</Text>
+          {(() => {
+            // Show safePerDay based on net projected (income - projectedTotal) to keep values consistent
+            const projectedTotal = Number(forecasts.forecast.projectedTotal || 0);
+            const netProjected = Math.round((monthlyIncome - projectedTotal) * 100) / 100;
+            const days = Number(forecasts.forecast.daysRemaining) || 1;
+            const safePerDay = Math.max(0, Math.round((netProjected / days) * 100) / 100);
+            return <Text style={styles.safeAmount}>{formatCurrency(safePerDay, user?.currency)}</Text>;
+          })()}
           <Text style={styles.safeLabel}>per day for the rest of the month</Text>
         </View>
       )}
@@ -224,12 +247,21 @@ export default function InsightsScreen() {
       )}
 
       <View style={{ height: 32 }} />
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Chat Button */}
+      <TouchableOpacity style={styles.chatFab} onPress={() => setChatOpen(true)}>
+        <Ionicons name="chatbubble-ellipses" size={22} color="#fff" />
+      </TouchableOpacity>
+
+      <ChatModal visible={chatOpen} onClose={() => setChatOpen(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  screenWrapper: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   card: {
     ...GLASS_STYLE,
     margin: 16, marginBottom: 0, padding: 20,
@@ -267,4 +299,20 @@ const styles = StyleSheet.create({
   recTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
   recDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
   recSavings: { fontSize: FONT_SIZES.sm, color: COLORS.secondary, fontWeight: '700', marginTop: 8 },
+  chatFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 28,
+    backgroundColor: COLORS.primary,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
 });

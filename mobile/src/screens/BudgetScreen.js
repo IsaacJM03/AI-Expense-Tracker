@@ -13,6 +13,7 @@ export default function BudgetScreen() {
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState('');
   const [period, setPeriod] = useState('monthly');
+  const [editingBudget, setEditingBudget] = useState(null);
 
   const loadData = async () => {
     try {
@@ -34,13 +35,20 @@ export default function BudgetScreen() {
   const handleCreate = async () => {
     if (!amount) return;
     try {
-      await api.createBudget({
+      const payload = {
         amount: parseFloat(amount),
         period,
         startDate: new Date().toISOString().split('T')[0],
-      });
+      };
+      if (editingBudget) {
+        await api.updateBudget(editingBudget.id, { amount: parseFloat(amount), period });
+      } else {
+        await api.createBudget(payload);
+      }
       setShowModal(false);
       setAmount('');
+      setPeriod('monthly');
+      setEditingBudget(null);
       await loadData();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -63,7 +71,17 @@ export default function BudgetScreen() {
             <Text style={styles.budgetName}>{item.category_name || 'Overall Budget'}</Text>
             <Text style={styles.budgetPeriod}>{item.period}</Text>
           </View>
-              <Text style={styles.budgetAmount}>{formatCurrency(budgetAmount, user?.currency)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.budgetAmount}>{formatCurrency(budgetAmount, user?.currency)}</Text>
+                <TouchableOpacity onPress={() => {
+                  setEditingBudget(item);
+                  setAmount(String(item.amount));
+                  setPeriod(item.period || 'monthly');
+                  setShowModal(true);
+                }}>
+                  <Ionicons name="pencil-outline" size={18} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
         </View>
         {!!item.is_adaptive && (
           <View style={styles.adaptiveBadge}>

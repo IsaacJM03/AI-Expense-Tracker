@@ -16,8 +16,11 @@ const {
   parseExpenseWithLLM,
   predictCategoryWithLLM,
   generateInsightsWithLLM,
+  callLLM,
   cleanOCRWithLLM,
 } = require('../services/ai/llmService');
+const db = require('../config/database');
+const { getEndOfMonthForecast, getSafeToSpend } = require('../services/ai/forecasting');
 
 // Data Export
 async function exportExpenses(req, res, next) {
@@ -75,6 +78,35 @@ async function convertCurrency(req, res, next) {
       original: { amount: parseFloat(amount), currency: from.toUpperCase() },
       converted: { amount: result, currency: to.toUpperCase() },
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Assistant permission endpoints
+async function getAssistantPermission(req, res, next) {
+  try {
+    const rows = await db.query('SELECT assistant_permission, assistant_permission_granted_at FROM users WHERE id = ?', [req.user.id]);
+    const row = rows && rows[0] ? rows[0] : { assistant_permission: false, assistant_permission_granted_at: null };
+    res.json({ assistantPermission: !!row.assistant_permission, grantedAt: row.assistant_permission_granted_at });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function grantAssistantPermission(req, res, next) {
+  try {
+    await db.query('UPDATE users SET assistant_permission = TRUE, assistant_permission_granted_at = NOW() WHERE id = ?', [req.user.id]);
+    res.json({ message: 'Assistant access granted', assistantPermission: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function revokeAssistantPermission(req, res, next) {
+  try {
+    await db.query('UPDATE users SET assistant_permission = FALSE, assistant_permission_granted_at = NULL WHERE id = ?', [req.user.id]);
+    res.json({ message: 'Assistant access revoked', assistantPermission: false });
   } catch (err) {
     next(err);
   }
@@ -267,6 +299,92 @@ async function smartInsights(req, res, next) {
   }
 }
 
+// Simple chat endpoint for interactive assistant in the app (MVP)
+async function chatWithLLM(req, res, next) {
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' });
+
+    // If LLM is configured, prefer the LLM-powered flow (with optional sanitized context).
+    if (isLLMConfigured()) {
+      const systemPrompt = `You are the ExpenseTracker assistant. Answer user questions concisely about personal finances, budgets, incomes, forecasts and expenses. If the user asks about their specific data, be cautious and suggest they grant permission to fetch detailed numbers. Keep responses short and actionable.`;
+
+      const needsData = /\b(my|mine|me|show me|what is my|how much|balance|income|expenses|safe to spend|forecast|budget|recent transactions)\b/i.test(message);
+      let extraContext = '';
+      let includedUserData = false;
+
+      if (needsData) {
+        try {
+          // Check whether the user has granted assistant permission
+          const rows = await db.query('SELECT assistant_permission FROM users WHERE id = ?', [req.user.id]);
+          const hasPermission = rows && rows[0] && rows[0].assistant_permission;
+          if (hasPermission) {
+            const forecast = await getEndOfMonthForecast(req.user.id);
+            const safe = await getSafeToSpend(req.user.id);
+            const recentRows = await Expense.findByUser(req.user.id, { limit: 5 });
+
+            const recent = (recentRows || []).map(r => ({ date: r.expense_date, amount: Number(r.amount), category: r.category_name || null, merchant: r.merchant || null }));
+
+            const sanitized = {
+              forecast: {
+                currentSpend: forecast.currentSpend,
+                projectedTotal: forecast.projectedTotal,
+                income: forecast.income,
+                projectedBalance: forecast.projectedBalance,
+                daysRemaining: forecast.daysRemaining,
+              },
+              safeToSpend: safe,
+              recentTransactions: recent,
+            };
+
+            extraContext = `\n\n-- User Financial Summary (sanitized) --\n${JSON.stringify(sanitized)}\n-- End Summary --\n`;
+            includedUserData = true;
+          }
+        } catch (e) {
+          console.log('Could not fetch user data for chat context:', e.message);
+        }
+      }
+
+      const prompt = systemPrompt + extraContext;
+      const result = await callLLM(prompt, message, { temperature: 0.3, maxTokens: 600 });
+      if (!result.success) return res.status(502).json({ error: result.error || 'AI provider error' });
+
+      return res.json({ reply: result.content, provider: result.provider, model: result.model, includedUserData });
+    }
+
+    // FALLBACK: LLM not configured — perform a rule-based, data-backed response
+    try {
+      const q = message.toLowerCase();
+      if (/safe to spend|safe per day|safe to spend this month|what can i spend/.test(q)) {
+        const safe = await getSafeToSpend(req.user.id);
+        const reply = `Safe to spend: ${safe.totalRemaining} total remaining — ${safe.safePerDay} per day for the next ${safe.daysRemaining} days.`;
+        return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
+      }
+
+      if (/forecast|projected balance|projected|project balance|projected balance/.test(q)) {
+        const forecast = await getEndOfMonthForecast(req.user.id);
+        const reply = `Projected total spent: ${forecast.projectedTotal}. Income this month: ${forecast.income}. Projected balance: ${forecast.projectedBalance}.`;
+        return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
+      }
+
+      if (/recent transactions|recent expenses|recent purchases|last 5|last 5 transactions/.test(q)) {
+        const recentRows = await Expense.findByUser(req.user.id, { limit: 5 });
+        const recent = (recentRows || []).map(r => `${r.expense_date.split(' ')[0]}: ${r.merchant || r.description || 'expense'} — ${r.amount}`).join('\n');
+        const reply = recent.length ? `Recent transactions:\n${recent}` : 'No recent transactions found.';
+        return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
+      }
+
+      // Default fallback help text
+      const defaultReply = `I can fetch your forecast, safe-to-spend, and recent transactions. Try: "What's my safe to spend?", "Show my forecast", or "Show recent transactions".`;
+      return res.json({ reply: defaultReply, provider: 'fallback', model: 'rule-based', includedUserData: false });
+    } catch (e) {
+      return res.status(500).json({ error: 'Fallback handler failed', details: e.message });
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
 // AI status endpoint
 async function aiStatus(req, res) {
   const info = getProviderInfo();
@@ -453,4 +571,6 @@ module.exports = {
   processReceiptImage,
   smartParse, smartCategorize, smartInsights,
   aiStatus,
+  chatWithLLM,
+  getAssistantPermission, grantAssistantPermission, revokeAssistantPermission,
 };

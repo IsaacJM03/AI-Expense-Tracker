@@ -137,6 +137,13 @@ class ApiService {
     });
   }
 
+  async updateBudget(id, data) {
+    return this.request(`/budgets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async deleteBudget(id) {
     return this.request(`/budgets/${id}`, { method: 'DELETE' });
   }
@@ -261,6 +268,25 @@ class ApiService {
 
   async smartInsights() {
     return this.request('/v1/ai/insights');
+  }
+
+  async getAssistantPermission() {
+    return this.request('/v1/ai/permission');
+  }
+
+  async grantAssistantPermission() {
+    return this.request('/v1/ai/permission/grant', { method: 'POST' });
+  }
+
+  async revokeAssistantPermission() {
+    return this.request('/v1/ai/permission/revoke', { method: 'POST' });
+  }
+
+  async chatWithLLM(message) {
+    return this.request('/v1/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
   }
 
   // Profile update

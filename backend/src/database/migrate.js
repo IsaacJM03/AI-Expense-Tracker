@@ -24,6 +24,10 @@ const migrations = [
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_email (email)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    // Add assistant permission flag to users
+    `ALTER TABLE users
+      ADD COLUMN assistant_permission BOOLEAN DEFAULT FALSE,
+      ADD COLUMN assistant_permission_granted_at DATETIME NULL`,
 
   // Categories - hierarchical via parent_id
   `CREATE TABLE IF NOT EXISTS categories (
@@ -169,7 +173,16 @@ const migrations = [
 
 async function migrate(connection) {
   for (const sql of migrations) {
-    await connection.execute(sql);
+    try {
+      await connection.execute(sql);
+    } catch (err) {
+      // Ignore duplicate-column errors (1060) to make migrations idempotent
+      if (err && err.errno === 1060) {
+        console.log('Migration warning: column already exists, skipping');
+        continue;
+      }
+      throw err;
+    }
   }
   console.log('All migrations completed successfully.');
 }

@@ -37,13 +37,41 @@ async function categorizeExpense(userId, description, merchant) {
 
   // Method 2: Description keyword matching
   if (!category && description) {
-    const words = description.toLowerCase().split(/\s+/);
+    const desc = description.toLowerCase();
+    const merchantLower = merchant ? merchant.toLowerCase() : '';
+
+    // Direct exact-word match (fast)
+    const words = desc.split(/\s+/);
     for (const word of words) {
       if (KEYWORD_CATEGORY_MAP[word]) {
         category = KEYWORD_CATEGORY_MAP[word];
-        confidence = 0.75;
+        confidence = 0.78;
         method = 'keyword';
         break;
+      }
+    }
+
+    // Substring match: capture cases like 'grocer' vs 'grocery', 'foodie lunch', 'uberx'
+    if (!category) {
+      for (const [kw, cat] of Object.entries(KEYWORD_CATEGORY_MAP)) {
+        if (desc.includes(kw) || merchantLower.includes(kw)) {
+          category = cat;
+          confidence = 0.72;
+          method = 'keyword_substring';
+          break;
+        }
+      }
+    }
+
+    // Slight fuzzy: check startsWith/endsWith for tokens without spaces
+    if (!category) {
+      for (const [kw, cat] of Object.entries(KEYWORD_CATEGORY_MAP)) {
+        if (words.some(w => w.startsWith(kw) || w.endsWith(kw))) {
+          category = cat;
+          confidence = 0.7;
+          method = 'keyword_fragment';
+          break;
+        }
       }
     }
   }
