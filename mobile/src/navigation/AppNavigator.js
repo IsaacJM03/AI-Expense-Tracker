@@ -13,6 +13,7 @@ import HomeScreen from '../screens/HomeScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import BudgetScreen from '../screens/BudgetScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
+import AddIncomeScreen from '../screens/AddIncomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ExportScreen from '../screens/ExportScreen';
 import ScanReceiptScreen from '../screens/ScanReceiptScreen';
@@ -91,6 +92,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: true, title: 'Add Expense', presentation: 'modal', ...stackScreenOptions }} />
+            <Stack.Screen name="AddIncome" component={AddIncomeScreen} options={{ headerShown: true, title: 'Add Income', presentation: 'modal', ...stackScreenOptions }} />
             <Stack.Screen name="ScanReceipt" component={ScanReceiptScreen} options={{ headerShown: true, title: 'Scan Receipt', presentation: 'modal', ...stackScreenOptions }} />
             <Stack.Screen name="Export" component={ExportScreen} options={{ headerShown: true, title: 'Export Data', presentation: 'modal', ...stackScreenOptions }} />
             <Stack.Screen name="Seasonal" component={SeasonalScreen} options={{ headerShown: true, title: 'Seasonal Analysis', presentation: 'modal', ...stackScreenOptions }} />

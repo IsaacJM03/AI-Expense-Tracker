@@ -15,19 +15,24 @@
 const db = require('../../config/database');
 
 async function getMonthlySeasonality(userId) {
+  // Compute net daily totals (expenses as positive, incomes subtracted)
   const rows = await db.query(
-    `SELECT MONTH(expense_date) as month_num,
-            MONTHNAME(expense_date) as month_name,
+    `SELECT MONTH(dt) as month_num,
+            MONTHNAME(dt) as month_name,
             AVG(daily_total) as avg_daily,
-            COUNT(DISTINCT DATE(expense_date)) as days_tracked
+            COUNT(DISTINCT DATE(dt)) as days_tracked
      FROM (
-       SELECT expense_date, SUM(amount) as daily_total
+       SELECT DATE(expense_date) as dt, SUM(amount) as daily_total
        FROM expenses WHERE user_id = ?
        GROUP BY DATE(expense_date)
+       UNION ALL
+       SELECT DATE(income_date) as dt, -SUM(amount) as daily_total
+       FROM incomes WHERE user_id = ?
+       GROUP BY DATE(income_date)
      ) daily
      GROUP BY month_num, month_name
      ORDER BY month_num`,
-    [userId]
+    [userId, userId]
   );
 
   if (rows.length < 2) return null;
@@ -46,17 +51,27 @@ async function getMonthlySeasonality(userId) {
 }
 
 async function getDayOfWeekPattern(userId) {
+  // Use net amounts (expenses minus incomes) over the last 6 months per day of week
   const rows = await db.query(
-    `SELECT DAYOFWEEK(expense_date) as dow,
-            DAYNAME(expense_date) as day_name,
-            AVG(amount) as avg_amount,
-            SUM(amount) as total,
+    `SELECT DAYOFWEEK(dt) as dow,
+            DAYNAME(dt) as day_name,
+            AVG(daily_total) as avg_amount,
+            SUM(daily_total) as total,
             COUNT(*) as count
-     FROM expenses WHERE user_id = ?
-     AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+     FROM (
+       SELECT DATE(expense_date) as dt, SUM(amount) as daily_total
+       FROM expenses
+       WHERE user_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+       GROUP BY DATE(expense_date)
+       UNION ALL
+       SELECT DATE(income_date) as dt, -SUM(amount) as daily_total
+       FROM incomes
+       WHERE user_id = ? AND income_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+       GROUP BY DATE(income_date)
+     ) d
      GROUP BY dow, day_name
      ORDER BY dow`,
-    [userId]
+    [userId, userId]
   );
 
   if (rows.length < 2) return null;
@@ -88,19 +103,28 @@ async function getPayCycleCorrelation(userId) {
 
   const payDay = parseInt(incomeRows[0].pay_day);
 
-  // Compare spending in the 5 days after payday vs rest of month
+  // Compare net amounts in the 5 days after payday vs rest of month (use expenses minus incomes)
   const rows = await db.query(
-    `SELECT
-       CASE
-         WHEN DAY(expense_date) BETWEEN ? AND ? THEN 'post_payday'
-         ELSE 'other'
-       END as period,
-       AVG(amount) as avg_amount,
-       COUNT(*) as count
-     FROM expenses WHERE user_id = ?
-     AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+    `SELECT period, AVG(daily_total) as avg_amount, COUNT(*) as count
+     FROM (
+       SELECT
+         CASE WHEN DAY(dt) BETWEEN ? AND ? THEN 'post_payday' ELSE 'other' END as period,
+         SUM(daily_total) as daily_total
+       FROM (
+         SELECT DATE(expense_date) as dt, SUM(amount) as daily_total
+         FROM expenses
+         WHERE user_id = ? AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+         GROUP BY DATE(expense_date)
+         UNION ALL
+         SELECT DATE(income_date) as dt, -SUM(amount) as daily_total
+         FROM incomes
+         WHERE user_id = ? AND income_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+         GROUP BY DATE(income_date)
+       ) combined
+       GROUP BY dt
+     ) grouped
      GROUP BY period`,
-    [payDay, Math.min(payDay + 5, 28), userId]
+    [payDay, Math.min(payDay + 5, 28), userId, userId]
   );
 
   if (rows.length < 2) return null;

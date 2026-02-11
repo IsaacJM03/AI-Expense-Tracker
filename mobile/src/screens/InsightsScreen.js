@@ -27,6 +27,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export default function InsightsScreen() {
   const [forecasts, setForecasts] = useState(null);
   const [insights, setInsights] = useState([]);
+  const [incomes, setIncomes] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,9 +46,11 @@ export default function InsightsScreen() {
     }
 
     try {
-      // Load forecasts first (most visible), then the rest
-      const forecastData = await api.getForecasts();
+      // Load forecasts and incomes first (most visible), then the rest
+      const [forecastData, incomesData] = await Promise.all([api.getForecasts(), api.getIncomes()]);
       setForecasts(forecastData);
+      const incs = incomesData.incomes || incomesData || [];
+      setIncomes(incs);
       setLoading(false);
 
       const [insightData, recData] = await Promise.all([
@@ -59,7 +62,7 @@ export default function InsightsScreen() {
       setInsights(ins);
       setRecommendations(recs);
 
-      cache.current = { data: { forecasts: forecastData, insights: ins, recommendations: recs }, timestamp: Date.now() };
+      cache.current = { data: { forecasts: forecastData, insights: ins, recommendations: recs, incomes: incs }, timestamp: Date.now() };
     } catch (err) {
       console.log('Load error:', err.message);
       setLoading(false);
@@ -67,6 +70,24 @@ export default function InsightsScreen() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // compute month-to-date income for display
+  const monthlyIncome = React.useMemo(() => {
+    if (!incomes || incomes.length === 0) return 0;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    return incomes.reduce((sum, inc) => {
+      const dateStr = inc.incomeDate || inc.income_date || inc.createdAt || inc.created_at;
+      const d = dateStr ? new Date(dateStr) : null;
+      if (!d || isNaN(d.getTime())) return sum;
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const amt = Number(inc.amount ?? inc.value ?? inc.total ?? 0) || 0;
+        return sum + amt;
+      }
+      return sum;
+    }, 0);
+  }, [incomes]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -103,6 +124,17 @@ export default function InsightsScreen() {
                 {Math.round(forecasts.forecast.projectedTotal).toLocaleString()}
               </Text>
             </View>
+
+            <View style={styles.forecastItem}>
+              <Text style={styles.forecastLabel}>Income This Month</Text>
+              <Text style={[styles.forecastValue, { color: COLORS.success }]}>{formatCurrency(Math.round(monthlyIncome), user?.currency)}</Text>
+            </View>
+
+            <View style={styles.forecastItem}>
+              <Text style={styles.forecastLabel}>Net Projected</Text>
+              <Text style={styles.forecastValue}>{formatCurrency(Math.round((forecasts.forecast.projectedTotal || 0) - monthlyIncome), user?.currency)}</Text>
+            </View>
+
             <View style={styles.forecastItem}>
               <Text style={styles.forecastLabel}>Daily Rate</Text>
               <Text style={styles.forecastValue}>{Math.round(forecasts.forecast.dailyRate).toLocaleString()}/day</Text>
@@ -205,7 +237,8 @@ const styles = StyleSheet.create({
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  forecastItem: { width: '46%' },
+  forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start' },
+  forecastItem: { flexBasis: '48%', width: '48%', marginBottom: 12, paddingRight: 8 },
   forecastLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   forecastValue: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   safeCard: {

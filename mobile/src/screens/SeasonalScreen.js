@@ -48,14 +48,14 @@ export default function SeasonalScreen() {
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
-      <Text style={styles.subtitle}>Discover your spending patterns over time</Text>
+      <Text style={styles.subtitle}>Discover your spending and income patterns over time (net values)</Text>
 
       {/* Legend & Analysis */}
       <View style={styles.legendCard}>
         <Text style={styles.legendTitle}>How to read this page</Text>
         <Text style={styles.legendText}>
-          <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Red bars</Text> mean higher-than-average spending; <Text style={{ color: COLORS.success, fontWeight: 'bold' }}>green bars</Text> mean lower-than-average. 
-          Each section analyzes your real expenses to reveal patterns by day, month, and pay cycle. 
+          <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Red bars</Text> mean higher-than-average net outflow; <Text style={{ color: COLORS.success, fontWeight: 'bold' }}>green bars</Text> mean lower-than-average (or income-dominated). 
+          Each section analyzes your net activity (expenses and incomes) to reveal patterns by day, month, and pay cycle. 
           Use these insights to spot habits, plan budgets, and avoid spikes.
         </Text>
       </View>
@@ -79,7 +79,7 @@ export default function SeasonalScreen() {
             <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
             <Text style={styles.cardTitle}>Monthly Patterns</Text>
           </View>
-          <Text style={styles.cardDesc}>Average daily spending by month</Text>
+          <Text style={styles.cardDesc}>Average daily net (spending − income) by month</Text>
           {data.monthlySeasonality.map((item) => (
             <View key={item.month} style={styles.monthRow}>
               <Text style={styles.monthName}>{item.monthName.substring(0, 3)}</Text>

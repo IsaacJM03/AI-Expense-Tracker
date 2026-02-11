@@ -43,7 +43,7 @@ function getRandomQuote() {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -55,6 +55,9 @@ export default function HomeScreen({ navigation }) {
   const [quote, setQuote] = useState(getRandomQuote);
   const lastFetchRef = useRef(0);
   const STALE_MS = 30_000; // 30 seconds
+  const [incomes, setIncomes] = useState([]);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [budgetTotal, setBudgetTotal] = useState(0);
 
   // Quick Entry: use local input inside child component to avoid re-renders
   const [quickLoading, setQuickLoading] = useState(false);
@@ -156,12 +159,26 @@ export default function HomeScreen({ navigation }) {
     if (isFirstLoad) setLoading(true);
 
     try {
-      const [expRes, sumRes] = await Promise.all([
+      const [expRes, sumRes, incomesRes, budgetsRes] = await Promise.all([
         api.getExpenses({ limit: 50 }),
         api.getExpenseSummary().catch(() => null),
+        api.getIncomes().catch(() => null),
+        api.getActiveBudgets().catch(() => null),
       ]);
+
       setExpenses(expRes?.expenses || []);
       if (sumRes) setSummary(sumRes);
+
+      const incs = incomesRes?.incomes || [];
+      setIncomes(incs);
+      // Compute income total for the current month (simple sum of all incomes returned)
+      const incTotal = incs.reduce((s, i) => s + parseFloat(i.amount || 0), 0);
+      setIncomeTotal(incTotal || 0);
+
+      const budgets = budgetsRes?.budgets || [];
+      const bTotal = budgets.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+      setBudgetTotal(bTotal || 0);
+
       lastFetchRef.current = Date.now();
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -176,6 +193,15 @@ export default function HomeScreen({ navigation }) {
       fetchData(false); // non-forced: skips if data is fresh
     }, [fetchData])
   );
+
+  // If navigated back with refresh param, force-fetch
+  React.useEffect(() => {
+    if (route?.params?.refresh) {
+      fetchData(true);
+      // clear the param so it doesn't re-trigger
+      try { navigation.setParams({ refresh: false }); } catch (e) { /* ignore */ }
+    }
+  }, [route?.params?.refresh]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -424,18 +450,32 @@ export default function HomeScreen({ navigation }) {
         const totalSpent = (summary.summary || []).reduce((sum, s) => sum + parseFloat(s.total || 0), 0);
         const txCount = (summary.summary || []).reduce((sum, s) => sum + parseInt(s.count || 0), 0);
         return (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>This Month</Text>
-            <Text style={styles.summaryAmount}>{fmtCurrency(totalSpent)}</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
-                <Text style={styles.summaryItemText}>
-                  {txCount} transactions
-                </Text>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>This Month</Text>
+                <Text style={styles.summaryAmount}>{fmtCurrency(totalSpent)}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                  <View>
+                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Income</Text>
+                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency(incomeTotal)}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Net</Text>
+                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency((incomeTotal || 0) - (totalSpent || 0))}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.summaryItemText, { color: 'rgba(255,255,255,0.9)' }]}>Budgets</Text>
+                    <Text style={[styles.summaryItemText, { fontSize: 16, marginTop: 4 }]}>{fmtCurrency(budgetTotal)}</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
+                    <Text style={styles.summaryItemText}>
+                      {txCount} transactions
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
         );
       })()}
 
@@ -479,10 +519,34 @@ export default function HomeScreen({ navigation }) {
           </View>
           <Text style={styles.actionLabel}>Convert</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('AddIncome')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: '#34D399' + '15' }]}> 
+            <Ionicons name="cash-outline" size={22} color="#10B981" />
+          </View>
+          <Text style={styles.actionLabel}>Income</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Quick Entry (local state) - keeps cursor stable */}
       <QuickEntry onSubmit={handleQuickAdd} />
+      {/* Recent Incomes (small list) */}
+      {incomes && incomes.length > 0 && (
+        <View style={{ marginTop: 12, marginBottom: 12 }}>
+          <Text style={{ fontFamily: FONTS.semiBold, fontSize: 16, color: COLORS.text, marginBottom: 8 }}>Recent Incomes</Text>
+          {incomes.slice(0,3).map(i => (
+            <View key={i.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.surface, padding: 10, borderRadius: 10, marginBottom: 8 }}>
+              <View>
+                <Text style={{ fontFamily: FONTS.medium, color: COLORS.text }}>{i.sourceName || 'Income'}</Text>
+                <Text style={{ fontFamily: FONTS.regular, color: COLORS.textLight, marginTop: 4 }}>{formatDate(i.incomeDate || i.income_date || i.createdAt)}</Text>
+              </View>
+              <Text style={{ fontFamily: FONTS.semiBold, color: COLORS.success }}>{fmtCurrency(i.amount)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Section Header */}
       <View style={styles.sectionHeader}>
