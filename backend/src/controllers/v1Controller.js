@@ -354,22 +354,33 @@ async function chatWithLLM(req, res, next) {
 
     // FALLBACK: LLM not configured — perform a rule-based, data-backed response
     try {
+      // fetch user's preferred currency
+      const userRows = await db.query('SELECT currency FROM users WHERE id = ?', [req.user.id]);
+      const userCurrency = (userRows && userRows[0] && userRows[0].currency) ? userRows[0].currency : 'KES';
+
+      // simple symbol map for common currencies
+      const SYMBOLS = {
+        USD: '$', EUR: '€', GBP: '£', KES: 'KSh', UGX: 'USh', TZS: 'TSh', NGN: '₦', ZAR: 'R', INR: '₹', JPY: '¥', CNY: '¥'
+      };
+      const symbol = SYMBOLS[userCurrency] || userCurrency;
+      const fmt = (amt) => `${symbol} ${Number(amt).toLocaleString()}`;
+
       const q = message.toLowerCase();
       if (/safe to spend|safe per day|safe to spend this month|what can i spend/.test(q)) {
         const safe = await getSafeToSpend(req.user.id);
-        const reply = `Safe to spend: ${safe.totalRemaining} total remaining — ${safe.safePerDay} per day for the next ${safe.daysRemaining} days.`;
+        const reply = `Safe to spend: ${fmt(safe.totalRemaining)} total remaining — ${fmt(safe.safePerDay)} per day for the next ${safe.daysRemaining} days.`;
         return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
       }
 
       if (/forecast|projected balance|projected|project balance|projected balance/.test(q)) {
         const forecast = await getEndOfMonthForecast(req.user.id);
-        const reply = `Projected total spent: ${forecast.projectedTotal}. Income this month: ${forecast.income}. Projected balance: ${forecast.projectedBalance}.`;
+        const reply = `Projected total spent: ${fmt(forecast.projectedTotal)}. Income this month: ${fmt(forecast.income)}. Projected balance: ${fmt(forecast.projectedBalance)}.`;
         return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
       }
 
       if (/recent transactions|recent expenses|recent purchases|last 5|last 5 transactions/.test(q)) {
         const recentRows = await Expense.findByUser(req.user.id, { limit: 5 });
-        const recent = (recentRows || []).map(r => `${r.expense_date.split(' ')[0]}: ${r.merchant || r.description || 'expense'} — ${r.amount}`).join('\n');
+        const recent = (recentRows || []).map(r => `${r.expense_date.split(' ')[0]}: ${r.merchant || r.description || 'expense'} — ${fmt(r.amount)}`).join('\n');
         const reply = recent.length ? `Recent transactions:\n${recent}` : 'No recent transactions found.';
         return res.json({ reply, provider: 'fallback', model: 'rule-based', includedUserData: true });
       }

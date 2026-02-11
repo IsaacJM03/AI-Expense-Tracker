@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
+import { CURRENCY_SYMBOLS } from '../utils/currency';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 export default function ChatModal({ visible, onClose }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -39,7 +42,11 @@ export default function ChatModal({ visible, onClose }) {
     setSending(true);
     try {
       const res = await api.chatWithLLM(userMsg.text);
-      const replyText = (res && res.reply) ? res.reply : 'Sorry, no response.';
+      let replyText = (res && res.reply) ? res.reply : 'Sorry, no response.';
+      // Replace $ or USD with user's currency symbol when possible
+      const userCurrency = user?.currency || 'KES';
+      const symbol = CURRENCY_SYMBOLS[userCurrency] || userCurrency;
+      replyText = replyText.replace(/\$\s?([\d,.]+)/g, `${symbol} $1`).replace(/USD\s?([\d,.]+)/gi, `${symbol} $1`).replace(/\$/g, symbol).replace(/USD/gi, symbol);
       const botMsg = { id: `bot-${Date.now()}`, role: 'bot', text: replyText };
       setMessages(prev => [...prev, botMsg]);
       // scroll to bottom
