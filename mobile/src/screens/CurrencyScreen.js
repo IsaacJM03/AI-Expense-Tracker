@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function CurrencyScreen() {
   const [currencies, setCurrencies] = useState([]);
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const currentCurrency = user?.currency || 'KES';
 
   useEffect(() => {
@@ -34,6 +34,7 @@ export default function CurrencyScreen() {
           onPress: async () => {
             try {
               await api.updateProfile({ currency: code });
+              updateUser({ currency: code });
               Alert.alert('Success', `Currency changed to ${code}`);
             } catch (err) {
               Alert.alert('Error', err.message);

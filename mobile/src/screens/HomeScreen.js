@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { formatCurrency } from '../utils/currency';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -167,10 +168,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const formatCurrency = (amount) => {
-    const num = parseFloat(amount) || 0;
-    return `KES ${num.toLocaleString()}`;
-  };
+  const fmtCurrency = (amount) => formatCurrency(amount, user?.currency);
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr);
@@ -207,7 +205,7 @@ export default function HomeScreen({ navigation }) {
             </Text>
           </View>
           <View style={styles.expenseRight}>
-            <Text style={styles.expenseAmount}>{formatCurrency(item.amount)}</Text>
+            <Text style={styles.expenseAmount}>{fmtCurrency(item.amount)}</Text>
             {!!badge && (
               <View style={[styles.badge, { backgroundColor: badge.color + '20' }]}>
                 <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
@@ -340,7 +338,7 @@ export default function HomeScreen({ navigation }) {
         return (
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>This Month</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalSpent)}</Text>
+            <Text style={styles.summaryAmount}>{fmtCurrency(totalSpent)}</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
                 <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />

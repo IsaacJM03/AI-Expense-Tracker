@@ -61,7 +61,8 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
+        <Ionicons name="log-out-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
@@ -101,8 +102,26 @@ const styles = StyleSheet.create({
   menuText: { fontSize: FONT_SIZES.md, color: COLORS.text, flex: 1 },
   menuChevron: { fontSize: FONT_SIZES.lg, color: COLORS.textTertiary },
   logoutButton: {
-    backgroundColor: COLORS.danger, borderRadius: 16, padding: 16, alignItems: 'center', marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.danger,
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    marginTop: 24,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  logoutText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
+  logoutText: {
+    color: '#fff',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
   version: { textAlign: 'center', marginTop: 24, color: COLORS.textTertiary, fontSize: FONT_SIZES.xs },
 });

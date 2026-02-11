@@ -2,6 +2,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
+import { formatCurrency } from '../utils/currency';
+import { CURRENCY_SYMBOLS } from '../utils/currency';
+// Replace $ or USD in AI-generated text with the user's currency symbol
+function replaceCurrencySymbols(text, currencyCode = 'KES') {
+  if (!text) return '';
+  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode;
+  // Replace $3,500.00, $ 3,500, USD 3,500, USD3,500, $700, etc. with correct symbol
+  return text
+    // Replace $12,000 or $ 12,000 or $12,000.00
+    .replace(/\$\s?([\d,.]+)/g, `${symbol} $1`)
+    // Replace USD 12,000 or USD12,000 or USD 12,000.00
+    .replace(/USD\s?([\d,.]+)/gi, `${symbol} $1`)
+    // Replace $ at end (fallback)
+    .replace(/\$/g, symbol)
+    // Replace USD at end (fallback)
+    .replace(/USD/gi, symbol);
+}
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -13,6 +31,7 @@ export default function InsightsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const cache = useRef({ data: null, timestamp: 0 });
+  const { user } = useAuth();
 
   const loadData = useCallback(async (force = false) => {
     // Use cache if fresh enough
@@ -103,7 +122,7 @@ export default function InsightsScreen() {
             <Ionicons name="shield-checkmark" size={20} color="#fff" />
             <Text style={styles.safeTitle}>Safe to Spend</Text>
           </View>
-          <Text style={styles.safeAmount}>{Math.round(forecasts.safeToSpend.safePerDay).toLocaleString()}</Text>
+          <Text style={styles.safeAmount}>{formatCurrency(Math.round(forecasts.safeToSpend.safePerDay), user?.currency)}</Text>
           <Text style={styles.safeLabel}>per day for the rest of the month</Text>
         </View>
       )}
@@ -145,10 +164,10 @@ export default function InsightsScreen() {
             <Text style={styles.cardTitle}>Insights</Text>
           </View>
           {insights.map((insight, i) => (
-            <View key={i} style={styles.insightItem}>
-              <Text style={styles.insightTitle}>{insight.title}</Text>
-              <Text style={styles.insightDesc}>{insight.description}</Text>
-            </View>
+              <View key={i} style={styles.insightItem}>
+                <Text style={styles.insightTitle}>{insight.title}</Text>
+                <Text style={styles.insightDesc}>{replaceCurrencySymbols(insight.description, user?.currency)}</Text>
+              </View>
           ))}
         </View>
       )}
@@ -162,10 +181,10 @@ export default function InsightsScreen() {
           </View>
           {recommendations.map((rec, i) => (
             <View key={i} style={styles.recItem}>
-              <Text style={styles.recTitle}>{rec.title}</Text>
-              <Text style={styles.recDesc}>{rec.description}</Text>
+              <Text style={styles.recTitle}>{replaceCurrencySymbols(rec.title, user?.currency)}</Text>
+              <Text style={styles.recDesc}>{replaceCurrencySymbols(rec.description, user?.currency)}</Text>
               {!!rec.potentialSavings && (
-                <Text style={styles.recSavings}>Potential savings: {Math.round(rec.potentialSavings).toLocaleString()}/month</Text>
+                <Text style={styles.recSavings}>Potential savings: {formatCurrency(Math.round(rec.potentialSavings), user?.currency)}/month</Text>
               )}
             </View>
           ))}

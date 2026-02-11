@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
+import { formatCurrency } from '../utils/currency';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 export default function BudgetScreen() {
+  const { user } = useAuth();
   const [budgets, setBudgets] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -60,7 +63,7 @@ export default function BudgetScreen() {
             <Text style={styles.budgetName}>{item.category_name || 'Overall Budget'}</Text>
             <Text style={styles.budgetPeriod}>{item.period}</Text>
           </View>
-          <Text style={styles.budgetAmount}>{budgetAmount.toLocaleString()}</Text>
+              <Text style={styles.budgetAmount}>{formatCurrency(budgetAmount, user?.currency)}</Text>
         </View>
         {!!item.is_adaptive && (
           <View style={styles.adaptiveBadge}>

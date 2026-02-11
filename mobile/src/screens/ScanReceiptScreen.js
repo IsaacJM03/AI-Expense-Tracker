@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
+import { formatCurrency } from '../utils/currency';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 export default function ScanReceiptScreen({ navigation }) {
@@ -11,6 +13,7 @@ export default function ScanReceiptScreen({ navigation }) {
   const [result, setResult] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [mode, setMode] = useState(null); // null | 'text' | 'image'
+  const { user } = useAuth();
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -253,7 +256,7 @@ export default function ScanReceiptScreen({ navigation }) {
 
         <View style={styles.resultRow}>
           <Text style={styles.resultLabel}>Total</Text>
-          <Text style={styles.resultAmount}>{parseFloat(result.parsed?.total || 0).toLocaleString()}</Text>
+          <Text style={styles.resultAmount}>{formatCurrency(result.parsed?.total, user?.currency)}</Text>
         </View>
 
         <View style={styles.resultRow}>
@@ -267,7 +270,7 @@ export default function ScanReceiptScreen({ navigation }) {
             {result.parsed.lineItems.map((item, i) => (
               <View key={i} style={styles.lineItem}>
                 <Text style={styles.lineItemName}>{item.name}</Text>
-                <Text style={styles.lineItemAmount}>{parseFloat(item.amount).toLocaleString()}</Text>
+                <Text style={styles.lineItemAmount}>{formatCurrency(item.amount, user?.currency)}</Text>
               </View>
             ))}
           </View>
