@@ -57,7 +57,7 @@ export default function BudgetScreen() {
           </View>
           <Text style={styles.budgetAmount}>{budgetAmount.toLocaleString()}</Text>
         </View>
-        {item.is_adaptive && (
+        {!!item.is_adaptive && (
           <View style={styles.adaptiveBadge}>
             <Text style={styles.adaptiveText}>🤖 Adaptive</Text>
           </View>
@@ -74,7 +74,7 @@ export default function BudgetScreen() {
 
       <FlatList
         data={budgets}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         renderItem={renderBudget}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}
         contentContainerStyle={{ padding: 16, paddingTop: 0 }}
