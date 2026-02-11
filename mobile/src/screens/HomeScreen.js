@@ -56,57 +56,93 @@ export default function HomeScreen({ navigation }) {
   const lastFetchRef = useRef(0);
   const STALE_MS = 30_000; // 30 seconds
 
-  // Quick Entry Bar State
-  const [quickInput, setQuickInput] = useState("");
+  // Quick Entry: use local input inside child component to avoid re-renders
   const [quickLoading, setQuickLoading] = useState(false);
-  const [parsedQuick, setParsedQuick] = useState({ amount: '', description: '', merchant: '' });
-
-  // Parse quick input (simple: "1200 lunch Java House")
-  React.useEffect(() => {
-    // Simple parse: first number is amount, rest is description/merchant
-    const match = quickInput.match(/(\d+(?:[.,]\d{1,2})?)(.*)/);
-    if (match) {
-      const amount = match[1].replace(/,/g, '');
-      const rest = match[2].trim();
-      // Try to split description and merchant by last space
-      let description = rest;
-      let merchant = '';
-      if (rest.includes(' ')) {
-        const idx = rest.lastIndexOf(' ');
-        description = rest.slice(0, idx);
-        merchant = rest.slice(idx + 1);
-      }
-      setParsedQuick({ amount, description: description.trim(), merchant: merchant.trim() });
-    } else {
-      setParsedQuick({ amount: '', description: '', merchant: '' });
-    }
-  }, [quickInput]);
 
   // Handle quick add
-  const handleQuickAdd = async () => {
-    if (quickLoading || !parsedQuick.amount || !parsedQuick.description) return;
+  // Accepts `text` from QuickEntry child (local state) and returns the created expense
+  const handleQuickAdd = async (text) => {
+    if (quickLoading) return null;
+    if (!text || !text.trim()) return null;
+    // Parse input text
+    const match = text.match(/(\d+(?:[.,]\d{1,2})?)(.*)/);
+    if (!match) return null;
+    const amount = match[1].replace(/,/g, '');
+    const rest = match[2].trim();
+    let description = rest;
+    let merchant = '';
+    if (rest.includes(' ')) {
+      const idx = rest.lastIndexOf(' ');
+      description = rest.slice(0, idx);
+      merchant = rest.slice(idx + 1);
+    }
+    if (!amount || !description.trim()) return null;
     setQuickLoading(true);
     try {
       const payload = {
-        amount: parseFloat(parsedQuick.amount),
-        description: parsedQuick.description,
-        merchant: parsedQuick.merchant,
+        amount: parseFloat(amount),
+        description: description.trim(),
+        merchant: merchant.trim(),
         source: 'quick_entry',
-        expense_date: new Date().toISOString(),
+        expenseDate: new Date().toISOString(),
       };
-      const newExpense = await api.addExpense(payload);
+      const res = await api.createExpense(payload);
+      const newExpense = res && res.expense ? res.expense : res;
+      console.log('Quick add response:', res);
       setExpenses(prev => [newExpense, ...prev]);
-      // Fix cursor bug: clear input after a short delay
-      setTimeout(() => {
-        setQuickInput("");
-        setParsedQuick({ amount: '', description: '', merchant: '' });
-      }, 10);
+      return newExpense;
     } catch (err) {
+      console.error('Quick add failed:', err);
       Alert.alert('Error', 'Failed to add expense');
+      return null;
     } finally {
       setQuickLoading(false);
     }
   };
+
+  // Local QuickEntry component to avoid parent re-renders affecting cursor
+  function QuickEntry({ onSubmit }) {
+    const [text, setText] = useState('');
+    const [loading, setLoading] = useState(false);
+    const inputRef = useRef(null);
+
+    const submit = async () => {
+      if (loading) return;
+      if (!text.trim()) return;
+      setLoading(true);
+      const created = await onSubmit(text.trim());
+      setLoading(false);
+      if (created) {
+        setText('');
+        // keep focus after submit
+        inputRef.current?.focus();
+      }
+    };
+
+    return (
+      <View style={styles.quickBarRow}>
+        <View style={styles.quickBar}>
+          <Ionicons name="search-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
+          <TextInput
+            ref={inputRef}
+            style={styles.quickInput}
+            placeholder="e.g. 1200 lunch Java House"
+            value={text}
+            onChangeText={setText}
+            placeholderTextColor={COLORS.textTertiary}
+            onSubmitEditing={submit}
+            returnKeyType="done"
+            blurOnSubmit={false}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+        <TouchableOpacity style={styles.quickAddBtn} onPress={submit} disabled={loading}>
+          <Ionicons name="add-circle" size={32} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const fetchData = useCallback(async (force = false) => {
     const now = Date.now();
@@ -252,7 +288,7 @@ export default function HomeScreen({ navigation }) {
               {item.description || 'Expense'}
             </Text>
             <Text style={styles.expenseMeta}>
-              {formatDate(item.expense_date || item.created_at)}
+              {formatDate(item.expenseDate || item.expense_date || item.created_at || item.createdAt)}
               {item.merchant ? ` · ${item.merchant}` : ''}
             </Text>
           </View>
@@ -445,24 +481,8 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Entry Bar - moved here for visibility */}
-      <View style={styles.quickBarRow}>
-        <View style={styles.quickBar}>
-          <Ionicons name="search-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.quickInput}
-            placeholder="e.g. 1200 lunch Java House"
-            value={quickInput}
-            onChangeText={setQuickInput}
-            placeholderTextColor={COLORS.textTertiary}
-            onSubmitEditing={handleQuickAdd}
-            returnKeyType="done"
-          />
-        </View>
-        <TouchableOpacity style={styles.quickAddBtn} onPress={handleQuickAdd} disabled={quickLoading}>
-          <Ionicons name="add-circle" size={32} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
+      {/* Quick Entry (local state) - keeps cursor stable */}
+      <QuickEntry onSubmit={handleQuickAdd} />
 
       {/* Section Header */}
       <View style={styles.sectionHeader}>
@@ -487,11 +507,14 @@ export default function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      
+
       <FlatList
         data={expenses}
         renderItem={renderExpense}
         keyExtractor={item => String(item.id)}
         ListHeaderComponent={renderHeader}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={48} color={COLORS.textLight} />
@@ -830,6 +853,6 @@ const styles = StyleSheet.create({
   quickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, ...SHADOWS.small, paddingHorizontal: 12 },
   quickInput: { flex: 1, fontSize: 16, color: COLORS.text, paddingVertical: 12 },
   quickAddBtn: { marginLeft: 8 },
-  quickPreview: { backgroundColor: COLORS.surface, borderRadius: 10, padding: 10, marginBottom: 12, ...SHADOWS.small },
-  quickPreviewText: { fontSize: 13, color: COLORS.text, marginBottom: 2 },
+  // quickPreview: { ... },
+  // quickPreviewText: { ... },
 });
