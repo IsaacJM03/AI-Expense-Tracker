@@ -14,6 +14,34 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// ─── Financial Quotes ────────────────────────────────────────
+const QUOTES = [
+  { text: 'Do not save what is left after spending, but spend what is left after saving.', author: 'Warren Buffett', icon: '💡' },
+  { text: 'A budget is telling your money where to go instead of wondering where it went.', author: 'Dave Ramsey', icon: '📊' },
+  { text: 'The habit of saving is itself an education; it fosters every virtue.', author: 'T.T. Munger', icon: '🌱' },
+  { text: 'It\'s not your salary that makes you rich, it\'s your spending habits.', author: 'Charles A. Jaffe', icon: '🎯' },
+  { text: 'Beware of little expenses. A small leak will sink a great ship.', author: 'Benjamin Franklin', icon: '🚢' },
+  { text: 'Money is a terrible master but an excellent servant.', author: 'P.T. Barnum', icon: '⚡' },
+  { text: 'An investment in knowledge pays the best interest.', author: 'Benjamin Franklin', icon: '📚' },
+  { text: 'The more you learn, the more you earn.', author: 'Warren Buffett', icon: '🧠' },
+  { text: 'Never spend your money before you have it.', author: 'Thomas Jefferson', icon: '🔑' },
+  { text: 'Financial peace isn\'t the acquisition of stuff. It\'s learning to live on less than you make.', author: 'Dave Ramsey', icon: '✨' },
+  { text: 'Every time you borrow money, you\'re robbing your future self.', author: 'Nathan W. Morris', icon: '⏳' },
+  { text: 'Wealth consists not in having great possessions, but in having few wants.', author: 'Epictetus', icon: '🏛️' },
+  { text: 'Rich people stay rich by living like they\'re broke. Broke people stay broke by living like they\'re rich.', author: 'Unknown', icon: '💎' },
+  { text: 'The best time to plant a tree was 20 years ago. The second best time is now.', author: 'Chinese Proverb', icon: '🌳' },
+  { text: 'Don\'t tell me what you value. Show me your budget, and I\'ll tell you what you value.', author: 'Joe Biden', icon: '🗳️' },
+  { text: 'Money looks better in the bank than on your feet.', author: 'Sophia Amoruso', icon: '👟' },
+  { text: 'Compound interest is the eighth wonder of the world.', author: 'Albert Einstein', icon: '🌍' },
+  { text: 'A penny saved is a penny earned.', author: 'Benjamin Franklin', icon: '🪙' },
+  { text: 'Too many people spend money they haven\'t earned to buy things they don\'t want to impress people they don\'t like.', author: 'Will Rogers', icon: '🎭' },
+  { text: 'You must gain control over your money or the lack of it will forever control you.', author: 'Dave Ramsey', icon: '🎮' },
+];
+
+function getRandomQuote() {
+  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
+}
+
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState([]);
@@ -23,6 +51,7 @@ export default function HomeScreen({ navigation }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
+  const [quote, setQuote] = useState(getRandomQuote);
   const lastFetchRef = useRef(0);
   const STALE_MS = 30_000; // 30 seconds
 
@@ -61,6 +90,7 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    setQuote(getRandomQuote());
     fetchData(true); // forced refresh
   }, [fetchData]);
 
@@ -280,11 +310,11 @@ export default function HomeScreen({ navigation }) {
     <View>
       {/* Greeting */}
       <View style={styles.greeting}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.greetingText}>
-            {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'}
+            {new Date().getHours() < 12 ? 'Good Morning ☀️' : new Date().getHours() < 17 ? 'Good Afternoon 🌤️' : 'Good Evening 🌙'}
           </Text>
-          <Text style={styles.userName}>{user?.display_name || user?.email || 'User'}</Text>
+          <Text style={styles.userName}>{user?.display_name || 'User'}</Text>
         </View>
         <TouchableOpacity
           style={styles.notifBtn}
@@ -292,6 +322,15 @@ export default function HomeScreen({ navigation }) {
         >
           <Ionicons name="person-circle-outline" size={36} color={COLORS.primary} />
         </TouchableOpacity>
+      </View>
+
+      {/* Daily Quote */}
+      <View style={styles.quoteCard}>
+        <Text style={styles.quoteIcon}>{quote.icon}</Text>
+        <View style={styles.quoteContent}>
+          <Text style={styles.quoteText}>"{quote.text}"</Text>
+          <Text style={styles.quoteAuthor}>— {quote.author}</Text>
+        </View>
       </View>
 
       {/* Summary Card */}
@@ -438,6 +477,38 @@ const styles = StyleSheet.create({
   },
   notifBtn: {
     padding: 4,
+  },
+  quoteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.accent,
+    ...SHADOWS.small,
+  },
+  quoteIcon: {
+    fontSize: 24,
+    marginRight: 10,
+    marginTop: 2,
+  },
+  quoteContent: {
+    flex: 1,
+  },
+  quoteText: {
+    fontSize: 13,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 19,
+  },
+  quoteAuthor: {
+    fontSize: 11,
+    fontFamily: FONTS.medium,
+    color: COLORS.textLight,
+    marginTop: 6,
   },
   summaryCard: {
     backgroundColor: COLORS.primary,
