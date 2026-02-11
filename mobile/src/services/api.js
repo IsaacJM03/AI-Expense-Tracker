@@ -201,6 +201,45 @@ class ApiService {
     });
   }
 
+  async uploadReceiptImage(imageUri) {
+    const url = `${this.baseUrl}/v1/ocr/receipt/upload`;
+    const formData = new FormData();
+
+    // Determine file extension and mime type from URI
+    const uriParts = imageUri.split('.');
+    const ext = uriParts[uriParts.length - 1] || 'jpg';
+    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' };
+    const mimeType = mimeMap[ext.toLowerCase()] || 'image/jpeg';
+
+    formData.append('receipt', {
+      uri: imageUri,
+      name: `receipt.${ext}`,
+      type: mimeType,
+    });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(this.token && { Authorization: `Bearer ${this.token}` }),
+          // Let fetch set Content-Type with boundary for multipart
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      if (error.message === 'Network request failed') {
+        throw new Error('No internet connection. Please try again when online.');
+      }
+      throw error;
+    }
+  }
+
   // V1: AI/LLM endpoints
   async getAIStatus() {
     return this.request('/v1/ai/status');

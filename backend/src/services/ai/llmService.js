@@ -1,48 +1,67 @@
 /**
  * LLM Integration Service
  *
- * Multi-provider AI service:
- *   - Google Gemini (free tier — primary)
- *   - OpenAI (paid — fallback)
+ * Multi-provider AI service with cascading fallbacks:
+ *   1. Google Gemini 2.5 Flash (primary — 5 RPM)
+ *   2. Google Gemini 2.5 Flash Lite (free fallback — 10 RPM)
+ *   3. Groq Llama 3.3 70B (free fallback — 30 RPM)
  *
- * Used for:
- *   - Complex expense parsing (ambiguous free-text)
- *   - Natural language insight generation
- *   - Smart category suggestions
- *   - Financial advice with context
- *
- * Falls back to rule-based logic when API is unavailable.
+ * Uses the same Gemini API key for all Google models.
+ * Falls back to rule-based logic when all APIs are unavailable.
  */
 
 const config = require('../../config');
 
 // ─── Provider Config ─────────────────────────────────────────
-const LLM_PROVIDER = process.env.LLM_PROVIDER || 'openai';
+const LLM_PROVIDER = process.env.LLM_PROVIDER || 'gemini';
 
 // Gemini
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-// OpenAI (fallback)
-const LLM_API_URL = process.env.LLM_API_URL || 'https://api.openai.com/v1/chat/completions';
-const LLM_API_KEY = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || '';
-const LLM_MODEL = process.env.LLM_MODEL || 'gpt-4o';
-const OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
+// Gemini fallback chain
+const GEMINI_FALLBACK_MODELS = [
+  'gemini-2.5-flash-lite',  // 10 RPM, 250K TPM — lightweight, fast
+];
+
+// Groq (free Llama inference — 30 RPM, 14,400 RPD)
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+// ─── Rate Limit Tracking ─────────────────────────────────────
+// Track per-model failures to avoid hammering rate-limited models
+const modelCooldowns = new Map();
+const COOLDOWN_MS = 60_000; // 1 minute cooldown after a rate limit hit
+
+function isModelCoolingDown(model) {
+  const until = modelCooldowns.get(model);
+  if (!until) return false;
+  if (Date.now() > until) {
+    modelCooldowns.delete(model);
+    return false;
+  }
+  return true;
+}
+
+function setCooldown(model, durationMs = COOLDOWN_MS) {
+  modelCooldowns.set(model, Date.now() + durationMs);
+}
 
 function isLLMConfigured() {
-  if (LLM_PROVIDER === 'gemini') return !!GEMINI_API_KEY;
-  return !!LLM_API_KEY;
+  return !!(GEMINI_API_KEY || GROQ_API_KEY);
 }
 
 function getProviderInfo() {
-  if (LLM_PROVIDER === 'gemini' && GEMINI_API_KEY) {
-    return { provider: 'gemini', model: GEMINI_MODEL };
+  const providers = [];
+  if (GEMINI_API_KEY) {
+    providers.push({ provider: 'gemini', model: GEMINI_MODEL, fallbacks: GEMINI_FALLBACK_MODELS });
   }
-  if (LLM_API_KEY) {
-    return { provider: 'openai', model: LLM_MODEL };
+  if (GROQ_API_KEY) {
+    providers.push({ provider: 'groq', model: GROQ_MODEL, fallbacks: [] });
   }
-  return { provider: null, model: null };
+  return { primary: providers[0] || { provider: null, model: null }, all: providers };
 }
 
 // ─── Gemini Call ─────────────────────────────────────────────
@@ -63,32 +82,34 @@ async function callGemini(systemPrompt, userMessage, options = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000), // 15s timeout
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     const msg = err.error?.message || `Gemini HTTP ${response.status}`;
-    console.error('Gemini error:', msg);
-    return { success: false, error: msg, fallback: true };
+    const isRateLimit = response.status === 429 || msg.toLowerCase().includes('rate');
+    if (isRateLimit) {
+      console.warn(`⚠️  ${model} rate limited — cooling down 60s`);
+      setCooldown(model);
+    }
+    console.error(`Gemini [${model}] error:`, msg);
+    return { success: false, error: msg, fallback: true, rateLimited: isRateLimit };
   }
 
   const data = await response.json();
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!content) return { success: false, error: 'Empty Gemini response', fallback: true };
 
-  return { success: true, content, provider: 'gemini', usage: data.usageMetadata };
+  return { success: true, content, provider: 'gemini', model, usage: data.usageMetadata };
 }
 
-// ─── OpenAI Call ─────────────────────────────────────────────
-async function callOpenAI(systemPrompt, userMessage, options = {}) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${LLM_API_KEY}`,
-  };
-  if (OPENAI_ORG_ID) headers['OpenAI-Organization'] = OPENAI_ORG_ID;
+// ─── Groq (Llama) Call ───────────────────────────────────────
+async function callGroq(systemPrompt, userMessage, options = {}) {
+  const model = options.model || GROQ_MODEL;
 
   const body = {
-    model: options.model || LLM_MODEL,
+    model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
@@ -97,56 +118,88 @@ async function callOpenAI(systemPrompt, userMessage, options = {}) {
     max_tokens: options.maxTokens || 500,
   };
 
-  const response = await fetch(LLM_API_URL, {
+  const response = await fetch(GROQ_BASE_URL, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+    },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    const msg = err.error?.message || `OpenAI HTTP ${response.status}`;
-    console.error('OpenAI error:', msg);
-    return { success: false, error: msg, fallback: true };
+    const msg = err.error?.message || `Groq HTTP ${response.status}`;
+    const isRateLimit = response.status === 429;
+    if (isRateLimit) {
+      const retryAfter = response.headers.get('retry-after');
+      const cooldownMs = retryAfter ? parseInt(retryAfter) * 1000 : COOLDOWN_MS;
+      console.warn(`⚠️  Groq ${model} rate limited — cooling down ${cooldownMs / 1000}s`);
+      setCooldown(`groq:${model}`, cooldownMs);
+    }
+    console.error(`Groq [${model}] error:`, msg);
+    return { success: false, error: msg, fallback: true, rateLimited: isRateLimit };
   }
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content?.trim();
-  return { success: true, content, provider: 'openai', usage: data.usage };
+  if (!content) return { success: false, error: 'Empty Groq response', fallback: true };
+
+  return { success: true, content, provider: 'groq', model, usage: data.usage };
 }
 
-// ─── Unified Entry Point ─────────────────────────────────────
+// ─── Unified Entry Point with Cascading Fallback ─────────────
 async function callLLM(systemPrompt, userMessage, options = {}) {
   if (!isLLMConfigured()) {
     return { success: false, error: 'LLM not configured', fallback: true };
   }
 
+  const errors = [];
+
   try {
-    // Primary: Gemini
-    if (LLM_PROVIDER === 'gemini' && GEMINI_API_KEY) {
-      const result = await callGemini(systemPrompt, userMessage, options);
-      if (result.success) return result;
-      // Fallback to OpenAI if Gemini fails
-      if (LLM_API_KEY) {
-        console.log('Gemini failed, trying OpenAI fallback...');
-        return await callOpenAI(systemPrompt, userMessage, options);
+    // ── Step 1: Try primary Gemini model ──
+    if (GEMINI_API_KEY) {
+      const primaryModel = options.model || GEMINI_MODEL;
+
+      if (!isModelCoolingDown(primaryModel)) {
+        console.log(`🤖 Trying ${primaryModel}...`);
+        const result = await callGemini(systemPrompt, userMessage, { ...options, model: primaryModel });
+        if (result.success) return result;
+        errors.push(`${primaryModel}: ${result.error}`);
+      } else {
+        console.log(`⏳ ${primaryModel} is cooling down, skipping`);
       }
-      return result;
+
+      // ── Step 2: Try Gemini fallback models ──
+      for (const fallbackModel of GEMINI_FALLBACK_MODELS) {
+        if (isModelCoolingDown(fallbackModel)) {
+          console.log(`⏳ ${fallbackModel} is cooling down, skipping`);
+          continue;
+        }
+
+        console.log(`🔄 Falling back to ${fallbackModel}...`);
+        const result = await callGemini(systemPrompt, userMessage, { ...options, model: fallbackModel });
+        if (result.success) return result;
+        errors.push(`${fallbackModel}: ${result.error}`);
+      }
     }
 
-    // Primary: OpenAI
-    if (LLM_API_KEY) {
-      const result = await callOpenAI(systemPrompt, userMessage, options);
+    // ── Step 3: Groq Llama (free, 30 RPM) ──
+    if (GROQ_API_KEY && !isModelCoolingDown(`groq:${GROQ_MODEL}`)) {
+      console.log(`🦙 Falling back to Groq ${GROQ_MODEL}...`);
+      const result = await callGroq(systemPrompt, userMessage, options);
       if (result.success) return result;
-      // Fallback to Gemini if OpenAI fails
-      if (GEMINI_API_KEY) {
-        console.log('OpenAI failed, trying Gemini fallback...');
-        return await callGemini(systemPrompt, userMessage, options);
-      }
-      return result;
+      errors.push(`groq/${GROQ_MODEL}: ${result.error}`);
+    } else if (GROQ_API_KEY) {
+      console.log(`⏳ Groq ${GROQ_MODEL} cooling down, skipping`);
     }
 
-    return { success: false, error: 'No LLM provider available', fallback: true };
+    return {
+      success: false,
+      error: `All providers failed: ${errors.join(' | ')}`,
+      fallback: true,
+    };
   } catch (error) {
     console.error('LLM call failed:', error.message);
     return { success: false, error: error.message, fallback: true };
@@ -186,6 +239,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
         confidence: parsed.confidence || 0.8,
       },
       source: 'llm',
+      model: result.model,
     };
   } catch (parseError) {
     return { success: false, fallback: true, error: 'Failed to parse LLM response' };
@@ -214,7 +268,7 @@ Return ONLY valid JSON, no markdown.`;
   try {
     const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const insights = JSON.parse(cleaned);
-    return { success: true, insights, source: 'llm' };
+    return { success: true, insights, source: 'llm', model: result.model };
   } catch (parseError) {
     return { success: false, fallback: true };
   }
@@ -245,7 +299,7 @@ Return ONLY a JSON object: { "category": "...", "confidence": 0.0-1.0, "reasonin
   try {
     const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const prediction = JSON.parse(cleaned);
-    return { success: true, ...prediction, source: 'llm' };
+    return { success: true, ...prediction, source: 'llm', model: result.model };
   } catch (parseError) {
     return { success: false, fallback: true };
   }
@@ -277,7 +331,7 @@ Return ONLY valid JSON.`;
   try {
     const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const recommendations = JSON.parse(cleaned);
-    return { success: true, recommendations, source: 'llm' };
+    return { success: true, recommendations, source: 'llm', model: result.model };
   } catch (parseError) {
     return { success: false, fallback: true };
   }
@@ -308,7 +362,7 @@ Return ONLY a JSON object:
   try {
     const cleaned = result.content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleaned);
-    return { success: true, parsed, source: 'llm' };
+    return { success: true, parsed, source: 'llm', model: result.model };
   } catch (parseError) {
     return { success: false, fallback: true };
   }

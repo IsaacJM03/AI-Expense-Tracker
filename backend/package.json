@@ -12,7 +12,12 @@
     "seed": "node src/database/seed.js",
     "seed:dummy": "node src/database/seedDummy.js"
   },
-  "keywords": ["expense-tracker", "ai", "finance", "budgeting"],
+  "keywords": [
+    "expense-tracker",
+    "ai",
+    "finance",
+    "budgeting"
+  ],
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -23,7 +28,9 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "mysql2": "^3.12.0",
+    "tesseract.js": "^7.0.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

@@ -7,6 +7,9 @@ const { generateInsights } = require('../services/ai/insights');
 const Expense = require('../models/Expense');
 const Category = require('../models/Category');
 const { categorizeExpense } = require('../services/ai/categorization');
+const fs = require('fs');
+const path = require('path');
+const { extractTextFromImage } = require('../services/ocr');
 const {
   isLLMConfigured,
   getProviderInfo,
@@ -276,9 +279,170 @@ async function aiStatus(req, res) {
       smartCategorize: true,
       smartInsights: true,
       ocrEnhanced: true,
+      imageUpload: true,
     },
     fallback: 'rule-based',
   });
+}
+
+// Receipt image upload + OCR processing
+async function processReceiptImage(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No receipt image uploaded. Send a file with field name "receipt".' });
+    }
+
+    const filePath = req.file.path;
+    const fileUrl = `/uploads/${req.file.filename}`;
+
+    // Read file as base64 for potential LLM vision processing
+    const imageBuffer = fs.readFileSync(filePath);
+    const imageBase64 = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype || 'image/jpeg';
+
+    let ocrText = '';
+    let parsed;
+    let parseSource = 'image-upload';
+
+    // If LLM is configured, try vision-based extraction
+    if (isLLMConfigured()) {
+      try {
+        const llmResult = await cleanOCRWithLLM(
+          `[IMAGE RECEIPT: base64 data provided, mime=${mimeType}]\nPlease extract all text from this receipt image and parse it.`,
+          imageBase64
+        );
+        if (llmResult.success) {
+          parsed = {
+            success: true,
+            data: {
+              merchant: llmResult.parsed.merchant,
+              total: llmResult.parsed.total,
+              date: llmResult.parsed.date,
+              lineItems: llmResult.parsed.lineItems || [],
+              confidence: llmResult.parsed.confidence || 0.75,
+            },
+          };
+          parseSource = 'llm-vision';
+        }
+      } catch (llmErr) {
+        console.log('LLM vision OCR failed, falling back:', llmErr.message);
+      }
+    }
+
+    // Tesseract.js OCR — extract text from the uploaded image
+    if (!parsed) {
+      try {
+        console.log('Running Tesseract OCR on', filePath);
+        const ocrResult = await extractTextFromImage(filePath);
+
+        if (ocrResult.text && ocrResult.text.length > 10) {
+          ocrText = ocrResult.text;
+
+          // If LLM is available, clean the raw OCR text for better parsing
+          if (isLLMConfigured()) {
+            try {
+              const llmCleaned = await cleanOCRWithLLM(ocrText);
+              if (llmCleaned.success) {
+                parsed = {
+                  success: true,
+                  data: {
+                    merchant: llmCleaned.parsed.merchant,
+                    total: llmCleaned.parsed.total,
+                    date: llmCleaned.parsed.date,
+                    lineItems: llmCleaned.parsed.lineItems || [],
+                    confidence: llmCleaned.parsed.confidence || 0.7,
+                  },
+                };
+                parseSource = 'tesseract+llm';
+              }
+            } catch (e) {
+              console.log('LLM cleaning of OCR text failed:', e.message);
+            }
+          }
+
+          // Fallback to rule-based parser on the raw OCR text
+          if (!parsed) {
+            parsed = parseReceiptText(ocrText);
+            if (parsed.success) {
+              // Adjust confidence based on Tesseract's own confidence
+              parsed.data.confidence = Math.min(parsed.data.confidence, ocrResult.confidence);
+              parseSource = 'tesseract';
+            }
+          }
+        } else {
+          console.log('Tesseract returned insufficient text:', ocrResult.text?.length || 0, 'chars');
+        }
+      } catch (ocrErr) {
+        console.log('Tesseract OCR failed:', ocrErr.message);
+      }
+    }
+
+    // If also sent ocrText in body (e.g. client-side OCR), use that as fallback
+    if (!parsed && req.body.ocrText) {
+      ocrText = req.body.ocrText;
+      parsed = parseReceiptText(ocrText);
+      parseSource = 'client-ocr';
+    }
+
+    // Final fallback: return the image stored, ask user to paste text
+    if (!parsed || !parsed.success) {
+      return res.status(200).json({
+        imageUrl: fileUrl,
+        imageStored: true,
+        parsed: null,
+        parseSource: 'none',
+        message: 'Image saved. Automatic text extraction is not available — please paste the receipt text manually.',
+        needsManualEntry: true,
+      });
+    }
+
+    // Auto-categorize based on merchant
+    let categoryId = null;
+    let confidence = parsed.data.confidence;
+
+    if (parsed.data.merchant) {
+      const catResult = await categorizeExpense(req.user.id, null, parsed.data.merchant);
+      const categories = await Category.findByUser(req.user.id);
+      const matched = categories.find(c => c.name === catResult.category);
+      if (matched) {
+        categoryId = matched.id;
+        confidence = Math.max(confidence, catResult.confidence);
+      }
+    }
+
+    // Create expense
+    const expense = await Expense.create({
+      userId: req.user.id,
+      categoryId,
+      amount: parsed.data.total,
+      description: parsed.data.lineItems.length > 0
+        ? parsed.data.lineItems.map(i => i.name).join(', ')
+        : null,
+      merchant: parsed.data.merchant,
+      expenseDate: parsed.data.date || new Date(),
+      confidenceScore: confidence,
+      source: 'ocr-image',
+    });
+
+    // Store raw input
+    await Expense.createRawInput({
+      expenseId: expense.id,
+      ocrRawText: ocrText || '[image-uploaded]',
+      ocrImageUrl: fileUrl,
+      inputType: 'ocr-image',
+      parsedData: parsed.data,
+    });
+
+    res.status(201).json({
+      expense,
+      parsed: parsed.data,
+      parseSource,
+      imageUrl: fileUrl,
+      needsConfirmation: confidence < 0.8,
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
 module.exports = {
@@ -286,6 +450,7 @@ module.exports = {
   getCurrencies, convertCurrency,
   getSeasonalAnalysis,
   processReceipt,
+  processReceiptImage,
   smartParse, smartCategorize, smartInsights,
   aiStatus,
 };
