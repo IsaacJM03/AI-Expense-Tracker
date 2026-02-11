@@ -4,11 +4,24 @@ const db = require('../config/database');
 const Expense = {
   async create({ userId, categoryId, amount, description, merchant, expenseDate, paymentMethod, isRecurring, confidenceScore, source }) {
     const id = uuidv4();
+    // Convert ISO string to MySQL DATETIME (YYYY-MM-DD HH:MM:SS)
+    function toMySQLDateTime(dt) {
+      if (!dt) return null;
+      const d = typeof dt === 'string' ? new Date(dt) : dt;
+      if (isNaN(d)) return null;
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0') + ' ' +
+        String(d.getHours()).padStart(2, '0') + ':' +
+        String(d.getMinutes()).padStart(2, '0') + ':' +
+        String(d.getSeconds()).padStart(2, '0');
+    }
+    const mysqlDate = toMySQLDateTime(expenseDate || new Date());
     await db.query(
       `INSERT INTO expenses (id, user_id, category_id, amount, description, merchant, expense_date, payment_method, is_recurring, confidence_score, source)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, userId, categoryId || null, amount, description || null, merchant || null,
-       expenseDate || new Date(), paymentMethod || null, isRecurring || false,
+       mysqlDate, paymentMethod || null, isRecurring || false,
        confidenceScore || 1.0, source || 'manual']
     );
     return { id, userId, categoryId, amount, description, merchant, expenseDate, source };

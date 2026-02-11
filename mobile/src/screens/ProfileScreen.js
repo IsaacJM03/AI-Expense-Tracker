@@ -62,7 +62,7 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
-        <Ionicons name="log-out-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
+        <Ionicons name="log-out-outline" size={24} color="#000" style={{ marginRight: 8 }} />
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   logoutText: {
-    color: '#fff',
+    color: '#000',
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
     letterSpacing: 1,

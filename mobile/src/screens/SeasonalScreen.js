@@ -50,6 +50,16 @@ export default function SeasonalScreen() {
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
       <Text style={styles.subtitle}>Discover your spending patterns over time</Text>
 
+      {/* Legend & Analysis */}
+      <View style={styles.legendCard}>
+        <Text style={styles.legendTitle}>How to read this page</Text>
+        <Text style={styles.legendText}>
+          <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Red bars</Text> mean higher-than-average spending; <Text style={{ color: COLORS.success, fontWeight: 'bold' }}>green bars</Text> mean lower-than-average. 
+          Each section analyzes your real expenses to reveal patterns by day, month, and pay cycle. 
+          Use these insights to spot habits, plan budgets, and avoid spikes.
+        </Text>
+      </View>
+
       {/* Day of Week Pattern */}
       {data?.dayOfWeekPattern && (
         <View style={styles.card}>
@@ -180,4 +190,10 @@ const styles = StyleSheet.create({
 
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
   emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
+  legendCard: {
+    ...GLASS_STYLE,
+    margin: 16, padding: 20,
+  },
+  legendTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
+  legendText: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, lineHeight: 22 },
 });

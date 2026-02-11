@@ -56,6 +56,58 @@ export default function HomeScreen({ navigation }) {
   const lastFetchRef = useRef(0);
   const STALE_MS = 30_000; // 30 seconds
 
+  // Quick Entry Bar State
+  const [quickInput, setQuickInput] = useState("");
+  const [quickLoading, setQuickLoading] = useState(false);
+  const [parsedQuick, setParsedQuick] = useState({ amount: '', description: '', merchant: '' });
+
+  // Parse quick input (simple: "1200 lunch Java House")
+  React.useEffect(() => {
+    // Simple parse: first number is amount, rest is description/merchant
+    const match = quickInput.match(/(\d+(?:[.,]\d{1,2})?)(.*)/);
+    if (match) {
+      const amount = match[1].replace(/,/g, '');
+      const rest = match[2].trim();
+      // Try to split description and merchant by last space
+      let description = rest;
+      let merchant = '';
+      if (rest.includes(' ')) {
+        const idx = rest.lastIndexOf(' ');
+        description = rest.slice(0, idx);
+        merchant = rest.slice(idx + 1);
+      }
+      setParsedQuick({ amount, description: description.trim(), merchant: merchant.trim() });
+    } else {
+      setParsedQuick({ amount: '', description: '', merchant: '' });
+    }
+  }, [quickInput]);
+
+  // Handle quick add
+  const handleQuickAdd = async () => {
+    if (quickLoading || !parsedQuick.amount || !parsedQuick.description) return;
+    setQuickLoading(true);
+    try {
+      const payload = {
+        amount: parseFloat(parsedQuick.amount),
+        description: parsedQuick.description,
+        merchant: parsedQuick.merchant,
+        source: 'quick_entry',
+        expense_date: new Date().toISOString(),
+      };
+      const newExpense = await api.addExpense(payload);
+      setExpenses(prev => [newExpense, ...prev]);
+      // Fix cursor bug: clear input after a short delay
+      setTimeout(() => {
+        setQuickInput("");
+        setParsedQuick({ amount: '', description: '', merchant: '' });
+      }, 10);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to add expense');
+    } finally {
+      setQuickLoading(false);
+    }
+  };
+
   const fetchData = useCallback(async (force = false) => {
     const now = Date.now();
     // Skip if data is fresh and not forced
@@ -205,7 +257,7 @@ export default function HomeScreen({ navigation }) {
             </Text>
           </View>
           <View style={styles.expenseRight}>
-            <Text style={styles.expenseAmount}>{fmtCurrency(item.amount)}</Text>
+            <Text style={[styles.expenseAmount, { color: COLORS.danger }]}>{fmtCurrency(item.amount)}</Text>
             {!!badge && (
               <View style={[styles.badge, { backgroundColor: badge.color + '20' }]}>
                 <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
@@ -353,20 +405,22 @@ export default function HomeScreen({ navigation }) {
 
       {/* Action Buttons */}
       <View style={styles.actionsRow}>
+        {/*
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => navigation.navigate('AddExpense')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+          <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '15' }]}> 
             <Ionicons name="add-outline" size={22} color={COLORS.primary} />
           </View>
           <Text style={styles.actionLabel}>Add</Text>
         </TouchableOpacity>
+        */}
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => navigation.navigate('ScanReceipt')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.accent + '15' }]}>
+          <View style={[styles.actionIcon, { backgroundColor: COLORS.accent + '15' }]}> 
             <Ionicons name="camera-outline" size={22} color={COLORS.accent} />
           </View>
           <Text style={styles.actionLabel}>Scan</Text>
@@ -375,7 +429,7 @@ export default function HomeScreen({ navigation }) {
           style={styles.actionBtn}
           onPress={() => navigation.navigate('Export')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '15' }]}>
+          <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '15' }]}> 
             <Ionicons name="download-outline" size={22} color={COLORS.success} />
           </View>
           <Text style={styles.actionLabel}>Export</Text>
@@ -384,10 +438,29 @@ export default function HomeScreen({ navigation }) {
           style={styles.actionBtn}
           onPress={() => navigation.navigate('Currency')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' + '15' }]}>
+          <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' + '15' }]}> 
             <Ionicons name="swap-horizontal-outline" size={22} color="#8B5CF6" />
           </View>
           <Text style={styles.actionLabel}>Convert</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Entry Bar - moved here for visibility */}
+      <View style={styles.quickBarRow}>
+        <View style={styles.quickBar}>
+          <Ionicons name="search-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.quickInput}
+            placeholder="e.g. 1200 lunch Java House"
+            value={quickInput}
+            onChangeText={setQuickInput}
+            placeholderTextColor={COLORS.textTertiary}
+            onSubmitEditing={handleQuickAdd}
+            returnKeyType="done"
+          />
+        </View>
+        <TouchableOpacity style={styles.quickAddBtn} onPress={handleQuickAdd} disabled={quickLoading}>
+          <Ionicons name="add-circle" size={32} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
 
@@ -753,4 +826,10 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: 4,
   },
+  quickBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  quickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, ...SHADOWS.small, paddingHorizontal: 12 },
+  quickInput: { flex: 1, fontSize: 16, color: COLORS.text, paddingVertical: 12 },
+  quickAddBtn: { marginLeft: 8 },
+  quickPreview: { backgroundColor: COLORS.surface, borderRadius: 10, padding: 10, marginBottom: 12, ...SHADOWS.small },
+  quickPreviewText: { fontSize: 13, color: COLORS.text, marginBottom: 2 },
 });
