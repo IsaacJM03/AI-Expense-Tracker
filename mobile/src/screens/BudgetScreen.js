@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert, TextInput, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -49,7 +50,11 @@ export default function BudgetScreen() {
       <View style={styles.budgetItem}>
         <View style={styles.budgetHeader}>
           <View style={styles.budgetIconContainer}>
-            <Text style={styles.budgetIcon}>{item.category_icon || '💰'}</Text>
+            {item.category_icon ? (
+              <Text style={styles.budgetIcon}>{item.category_icon}</Text>
+            ) : (
+              <Ionicons name="wallet-outline" size={20} color={COLORS.textSecondary} />
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.budgetName}>{item.category_name || 'Overall Budget'}</Text>
@@ -59,7 +64,10 @@ export default function BudgetScreen() {
         </View>
         {!!item.is_adaptive && (
           <View style={styles.adaptiveBadge}>
-            <Text style={styles.adaptiveText}>🤖 Adaptive</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="hardware-chip-outline" size={14} color={COLORS.secondary} />
+              <Text style={styles.adaptiveText}>Adaptive</Text>
+            </View>
           </View>
         )}
       </View>
@@ -80,7 +88,7 @@ export default function BudgetScreen() {
         contentContainerStyle={{ padding: 16, paddingTop: 0 }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>📋</Text>
+            <Ionicons name="clipboard-outline" size={48} color={COLORS.textTertiary} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyText}>No budgets set</Text>
             <Text style={styles.emptySubtext}>Create a budget to start tracking your spending limits</Text>
           </View>
@@ -93,7 +101,7 @@ export default function BudgetScreen() {
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Create Budget</Text>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputIcon}>💰</Text>
+              <Ionicons name="cash-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.input}
                 placeholder="Amount"
@@ -147,7 +155,7 @@ const styles = StyleSheet.create({
   adaptiveBadge: { marginTop: 10, alignSelf: 'flex-start' },
   adaptiveText: { fontSize: FONT_SIZES.xs, color: COLORS.secondary },
   empty: { alignItems: 'center', padding: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: 16, opacity: 0.6 },
+
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
   emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
@@ -161,7 +169,7 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     paddingHorizontal: 14, marginBottom: 16,
   },
-  inputIcon: { fontSize: 16, marginRight: 10 },
+
   input: { flex: 1, paddingVertical: 14, fontSize: FONT_SIZES.md, color: COLORS.text },
   periodRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   periodButton: {

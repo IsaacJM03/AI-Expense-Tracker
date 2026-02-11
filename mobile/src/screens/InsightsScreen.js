@@ -1,43 +1,78 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
+
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export default function InsightsScreen() {
   const [forecasts, setForecasts] = useState(null);
   const [insights, setInsights] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const cache = useRef({ data: null, timestamp: 0 });
 
-  const loadData = async () => {
+  const loadData = useCallback(async (force = false) => {
+    // Use cache if fresh enough
+    if (!force && cache.current.data && Date.now() - cache.current.timestamp < CACHE_TTL) {
+      const { forecasts: f, insights: i, recommendations: r } = cache.current.data;
+      setForecasts(f);
+      setInsights(i);
+      setRecommendations(r);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [forecastData, insightData, recData] = await Promise.all([
-        api.getForecasts(),
+      // Load forecasts first (most visible), then the rest
+      const forecastData = await api.getForecasts();
+      setForecasts(forecastData);
+      setLoading(false);
+
+      const [insightData, recData] = await Promise.all([
         api.getInsights(),
         api.getRecommendations(),
       ]);
-      setForecasts(forecastData);
-      setInsights(insightData.insights || []);
-      setRecommendations(recData.recommendations || []);
+      const ins = insightData.insights || [];
+      const recs = recData.recommendations || [];
+      setInsights(ins);
+      setRecommendations(recs);
+
+      cache.current = { data: { forecasts: forecastData, insights: ins, recommendations: recs }, timestamp: Date.now() };
     } catch (err) {
       console.log('Load error:', err.message);
+      setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(true);
     setRefreshing(false);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.textSecondary, marginTop: 12, fontSize: FONT_SIZES.sm }}>Loading insights...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}>
       {/* Forecast Card */}
       {forecasts?.forecast && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📊 Month Forecast</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="trending-up" size={20} color={COLORS.primary} />
+            <Text style={styles.cardTitle}>Month Forecast</Text>
+          </View>
           <View style={styles.forecastGrid}>
             <View style={styles.forecastItem}>
               <Text style={styles.forecastLabel}>Spent So Far</Text>
@@ -64,7 +99,10 @@ export default function InsightsScreen() {
       {/* Safe to Spend */}
       {forecasts?.safeToSpend && (
         <View style={styles.safeCard}>
-          <Text style={styles.safeTitle}>💚 Safe to Spend</Text>
+          <View style={styles.safeTitleRow}>
+            <Ionicons name="shield-checkmark" size={20} color="#fff" />
+            <Text style={styles.safeTitle}>Safe to Spend</Text>
+          </View>
           <Text style={styles.safeAmount}>{Math.round(forecasts.safeToSpend.safePerDay).toLocaleString()}</Text>
           <Text style={styles.safeLabel}>per day for the rest of the month</Text>
         </View>
@@ -73,7 +111,10 @@ export default function InsightsScreen() {
       {/* Budget Risks */}
       {forecasts?.budgetRisks?.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>⚠️ Budget Risks</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="alert-circle-outline" size={20} color={COLORS.warning} />
+            <Text style={styles.cardTitle}>Budget Risks</Text>
+          </View>
           {forecasts.budgetRisks.map((risk, i) => (
             <View key={i} style={styles.riskItem}>
               <View style={styles.riskHeader}>
@@ -99,7 +140,10 @@ export default function InsightsScreen() {
       {/* Insights */}
       {insights.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>💡 Insights</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="bulb-outline" size={20} color={COLORS.warning} />
+            <Text style={styles.cardTitle}>Insights</Text>
+          </View>
           {insights.map((insight, i) => (
             <View key={i} style={styles.insightItem}>
               <Text style={styles.insightTitle}>{insight.title}</Text>
@@ -112,12 +156,15 @@ export default function InsightsScreen() {
       {/* Recommendations */}
       {recommendations.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>🎯 Recommendations</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="navigate-outline" size={20} color={COLORS.secondary} />
+            <Text style={styles.cardTitle}>Recommendations</Text>
+          </View>
           {recommendations.map((rec, i) => (
             <View key={i} style={styles.recItem}>
               <Text style={styles.recTitle}>{rec.title}</Text>
               <Text style={styles.recDesc}>{rec.description}</Text>
-              {rec.potentialSavings && (
+              {!!rec.potentialSavings && (
                 <Text style={styles.recSavings}>Potential savings: {Math.round(rec.potentialSavings).toLocaleString()}/month</Text>
               )}
             </View>
@@ -136,7 +183,8 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     margin: 16, marginBottom: 0, padding: 20,
   },
-  cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   forecastItem: { width: '46%' },
   forecastLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -145,6 +193,7 @@ const styles = StyleSheet.create({
     margin: 16, marginBottom: 0, borderRadius: 20, padding: 24, alignItems: 'center',
     backgroundColor: COLORS.secondary,
   },
+  safeTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   safeTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: '#fff' },
   safeAmount: { fontSize: 40, fontWeight: '800', color: '#fff', letterSpacing: -1 },
   safeLabel: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.7)', marginTop: 4 },

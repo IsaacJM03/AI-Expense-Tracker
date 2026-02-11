@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,7 +29,7 @@ export default function LoginScreen({ navigation }) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.content}>
         <View style={styles.heroSection}>
-          <Text style={styles.heroEmoji}>💰</Text>
+          <Ionicons name="wallet" size={56} color={COLORS.primary} style={{ marginBottom: 16 }} />
           <Text style={styles.title}>AI Expense</Text>
           <Text style={styles.titleAccent}>Tracker</Text>
           <Text style={styles.subtitle}>Smart financial planning, powered by AI</Text>
@@ -36,7 +37,7 @@ export default function LoginScreen({ navigation }) {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputIcon}>✉️</Text>
+            <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -48,7 +49,7 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputIcon}>🔒</Text>
+            <Ionicons name="lock-closed-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
             <TextInput
               style={styles.input}
               placeholder="Password"
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   heroSection: { alignItems: 'center', marginBottom: 48 },
-  heroEmoji: { fontSize: 56, marginBottom: 16 },
+
   title: { fontSize: FONT_SIZES.xxl, fontWeight: '800', color: COLORS.text, letterSpacing: -1 },
   titleAccent: { fontSize: FONT_SIZES.xxl, fontWeight: '800', color: COLORS.primary, letterSpacing: -1, marginTop: -4 },
   subtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, marginTop: 12 },
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     paddingHorizontal: 16,
   },
-  inputIcon: { fontSize: 16, marginRight: 12 },
+
   input: {
     flex: 1, paddingVertical: 16, fontSize: FONT_SIZES.md, color: COLORS.text,
   },

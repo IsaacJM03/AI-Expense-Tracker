@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -62,7 +63,7 @@ export default function ScanReceiptScreen({ navigation }) {
           </TouchableOpacity>
 
           <View style={styles.cameraCard}>
-            <Text style={styles.cameraIcon}>📸</Text>
+            <Ionicons name="camera-outline" size={40} color={COLORS.textSecondary} style={{ marginBottom: 8, opacity: 0.6 }} />
             <Text style={styles.cameraTitle}>Camera Capture</Text>
             <Text style={styles.cameraDesc}>
               Camera-based OCR scanning coming in the next update
@@ -71,7 +72,10 @@ export default function ScanReceiptScreen({ navigation }) {
         </>
       ) : (
         <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>📝 Extracted Data</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.resultTitle}>Extracted Data</Text>
+          </View>
 
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>Merchant</Text>
@@ -111,7 +115,10 @@ export default function ScanReceiptScreen({ navigation }) {
           </View>
 
           {result.needsConfirmation && (
-            <Text style={styles.confirmNote}>⚠️ Low confidence — please verify the details above</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+              <Ionicons name="alert-circle-outline" size={16} color={COLORS.warning} />
+              <Text style={styles.confirmNote}>Low confidence — please verify the details above</Text>
+            </View>
           )}
 
           <View style={styles.actionRow}>
@@ -146,14 +153,14 @@ const styles = StyleSheet.create({
     padding: 24, alignItems: 'center',
     borderStyle: 'dashed',
   },
-  cameraIcon: { fontSize: 40, marginBottom: 8, opacity: 0.6 },
+
   cameraTitle: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 4 },
   cameraDesc: { fontSize: FONT_SIZES.sm, color: COLORS.textTertiary, textAlign: 'center' },
   resultCard: {
     ...GLASS_STYLE,
     padding: 20,
   },
-  resultTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+  resultTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   resultRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder,

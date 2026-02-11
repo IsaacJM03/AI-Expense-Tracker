@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,37 +27,37 @@ export default function ProfileScreen({ navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>AI Tools</Text>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ScanReceipt')}>
-          <Text style={styles.menuIcon}>📷</Text>
+          <Ionicons name="camera-outline" size={20} color={COLORS.text} style={styles.menuIconStyle} />
           <Text style={styles.menuText}>Scan Receipt (OCR)</Text>
-          <Text style={styles.menuChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Seasonal')}>
-          <Text style={styles.menuIcon}>📅</Text>
+          <Ionicons name="calendar-outline" size={20} color={COLORS.text} style={styles.menuIconStyle} />
           <Text style={styles.menuText}>Seasonal Analysis</Text>
-          <Text style={styles.menuChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textTertiary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Currency')}>
-          <Text style={styles.menuIcon}>💱</Text>
+          <Ionicons name="swap-horizontal-outline" size={20} color={COLORS.text} style={styles.menuIconStyle} />
           <Text style={styles.menuText}>Currency: {user?.currency || 'KES'}</Text>
-          <Text style={styles.menuChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Export')}>
-          <Text style={styles.menuIcon}>📤</Text>
+          <Ionicons name="share-outline" size={20} color={COLORS.text} style={styles.menuIconStyle} />
           <Text style={styles.menuText}>Export Data</Text>
-          <Text style={styles.menuChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textTertiary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Security</Text>
         <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuIcon}>🔒</Text>
+          <Ionicons name="lock-closed-outline" size={20} color={COLORS.text} style={styles.menuIconStyle} />
           <Text style={styles.menuText}>Change Password</Text>
-          <Text style={styles.menuChevron}>›</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textTertiary} />
         </TouchableOpacity>
       </View>
 
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', padding: 16,
     borderTopWidth: 1, borderTopColor: COLORS.glassBorder,
   },
-  menuIcon: { fontSize: 18, marginRight: 12, width: 24, textAlign: 'center' },
+  menuIconStyle: { marginRight: 12, width: 24, textAlign: 'center' },
   menuText: { fontSize: FONT_SIZES.md, color: COLORS.text, flex: 1 },
   menuChevron: { fontSize: FONT_SIZES.lg, color: COLORS.textTertiary },
   logoutButton: {

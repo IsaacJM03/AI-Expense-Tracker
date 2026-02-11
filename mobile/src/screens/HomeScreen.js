@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -49,7 +50,11 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.expenseItem}>
       <View style={styles.expenseLeft}>
         <View style={styles.expenseIconContainer}>
-          <Text style={styles.expenseIcon}>{item.category_icon || '📦'}</Text>
+          {item.category_icon ? (
+            <Text style={styles.expenseIcon}>{item.category_icon}</Text>
+          ) : (
+            <Ionicons name="cube-outline" size={20} color={COLORS.textSecondary} />
+          )}
         </View>
         <View style={styles.expenseInfo}>
           <Text style={styles.expenseDesc} numberOfLines={1}>{item.description || item.category_name || 'Expense'}</Text>
@@ -72,10 +77,18 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('ScanReceipt')}>
+          <Ionicons name="scan-outline" size={20} color="#fff" />
+          <Text style={styles.scanButtonText}>Scan Receipt</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Quick Entry */}
       <View style={styles.quickEntry}>
         <View style={styles.quickInputContainer}>
-          <Text style={styles.quickIcon}>⚡</Text>
+          <Ionicons name="flash-outline" size={16} color={COLORS.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.quickInput}
             placeholder='Quick: "2000 lunch" or "🍔 500"'
@@ -99,7 +112,7 @@ export default function HomeScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textSecondary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>📝</Text>
+            <Ionicons name="document-text-outline" size={48} color={COLORS.textTertiary} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyText}>No expenses yet</Text>
             <Text style={styles.emptySubtext}>Use the quick entry above{'\n'}to add your first expense</Text>
           </View>
@@ -127,7 +140,12 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     paddingHorizontal: 14,
   },
-  quickIcon: { fontSize: 14, marginRight: 8 },
+  quickActions: { paddingHorizontal: 16, marginBottom: 12 },
+  scanButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: COLORS.accent, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20,
+  },
+  scanButtonText: { color: '#fff', fontSize: FONT_SIZES.md, fontWeight: '600' },
   quickInput: {
     flex: 1, paddingVertical: 13,
     fontSize: FONT_SIZES.md, color: COLORS.text,
@@ -154,7 +172,7 @@ const styles = StyleSheet.create({
   expenseAmount: { fontSize: FONT_SIZES.md, fontWeight: '700', color: COLORS.danger },
   empty: { alignItems: 'center', padding: 60 },
   emptyContainer: { flexGrow: 1 },
-  emptyIcon: { fontSize: 48, marginBottom: 16, opacity: 0.6 },
+
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
   emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
 });

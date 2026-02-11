@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -52,7 +53,10 @@ export default function SeasonalScreen() {
       {/* Day of Week Pattern */}
       {data?.dayOfWeekPattern && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📊 Day of Week Pattern</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="bar-chart-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.cardTitle}>Day of Week Pattern</Text>
+          </View>
           <Text style={styles.cardDesc}>How your spending varies by day (vs. your average)</Text>
           {data.dayOfWeekPattern.map(renderDayOfWeekBar)}
         </View>
@@ -61,7 +65,10 @@ export default function SeasonalScreen() {
       {/* Monthly Seasonality */}
       {data?.monthlySeasonality && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📆 Monthly Patterns</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.cardTitle}>Monthly Patterns</Text>
+          </View>
           <Text style={styles.cardDesc}>Average daily spending by month</Text>
           {data.monthlySeasonality.map((item) => (
             <View key={item.month} style={styles.monthRow}>
@@ -80,7 +87,10 @@ export default function SeasonalScreen() {
       {/* Pay Cycle */}
       {data?.payCycleCorrelation && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>💰 Pay Cycle Impact</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="cash-outline" size={20} color={COLORS.secondary} />
+            <Text style={styles.cardTitle}>Pay Cycle Impact</Text>
+          </View>
           <Text style={styles.cardInsight}>{data.payCycleCorrelation.insight}</Text>
           {data.payCycleCorrelation.hasSpike && (
             <View style={styles.payCycleDetails}>
@@ -104,7 +114,10 @@ export default function SeasonalScreen() {
       {/* Category Seasonality */}
       {data?.categorySeasonality && data.categorySeasonality.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>🏷️ Category Seasonal Peaks</Text>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="pricetag-outline" size={20} color={COLORS.accent} />
+            <Text style={styles.cardTitle}>Category Seasonal Peaks</Text>
+          </View>
           {data.categorySeasonality.map((item, i) => (
             <View key={i} style={styles.catRow}>
               <Text style={styles.catName}>{item.category}</Text>
@@ -119,7 +132,7 @@ export default function SeasonalScreen() {
       {/* Empty state */}
       {!data?.dayOfWeekPattern && !data?.monthlySeasonality && (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📊</Text>
+          <Ionicons name="analytics-outline" size={48} color={COLORS.textTertiary} style={{ marginBottom: 16 }} />
           <Text style={styles.emptyText}>Not enough data yet</Text>
           <Text style={styles.emptySubtext}>Keep tracking expenses to unlock seasonal insights</Text>
         </View>
@@ -137,7 +150,8 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     margin: 16, marginTop: 0, padding: 20, marginBottom: 16,
   },
-  cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  cardTitle: { fontSize: FONT_SIZES.lg, fontWeight: '700', color: COLORS.text },
   cardDesc: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 16 },
   cardInsight: { fontSize: FONT_SIZES.md, color: COLORS.text, lineHeight: 22, marginTop: 8 },
   barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
@@ -163,7 +177,7 @@ const styles = StyleSheet.create({
   catName: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.text },
   catPeak: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginTop: 2 },
   empty: { alignItems: 'center', padding: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: 16, opacity: 0.6 },
+
   emptyText: { fontSize: FONT_SIZES.lg, fontWeight: '600', color: COLORS.text },
   emptySubtext: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
 });

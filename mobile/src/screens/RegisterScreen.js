@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,7 +40,7 @@ export default function RegisterScreen({ navigation }) {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputIcon}>👤</Text>
+            <Ionicons name="person-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
             <TextInput
               style={styles.input}
               placeholder="Display Name (optional)"
@@ -49,7 +50,7 @@ export default function RegisterScreen({ navigation }) {
             />
           </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputIcon}>✉️</Text>
+            <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -61,7 +62,7 @@ export default function RegisterScreen({ navigation }) {
             />
           </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputIcon}>🔒</Text>
+            <Ionicons name="lock-closed-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
             <TextInput
               style={styles.input}
               placeholder="Password (min 8 characters)"
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     paddingHorizontal: 16,
   },
-  inputIcon: { fontSize: 16, marginRight: 12 },
+
   input: {
     flex: 1, paddingVertical: 16, fontSize: FONT_SIZES.md, color: COLORS.text,
   },

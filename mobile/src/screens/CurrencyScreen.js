@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -62,7 +63,7 @@ export default function CurrencyScreen() {
               1 USD = {c.rate.toLocaleString()} {c.code}
             </Text>
             {c.code === currentCurrency && (
-              <Text style={styles.currentBadge}>✓</Text>
+              <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
             )}
           </TouchableOpacity>
         ))}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -48,7 +49,7 @@ export default function AddExpenseScreen({ navigation }) {
 
       <View style={styles.fields}>
         <View style={styles.inputContainer}>
-          <Text style={styles.inputIcon}>📝</Text>
+          <Ionicons name="create-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
           <TextInput
             style={styles.input}
             placeholder="Description (e.g., lunch, groceries)"
@@ -59,7 +60,7 @@ export default function AddExpenseScreen({ navigation }) {
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputIcon}>🏪</Text>
+          <Ionicons name="storefront-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 12 }} />
           <TextInput
             style={styles.input}
             placeholder="Merchant (optional)"
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     ...GLASS_STYLE,
     paddingHorizontal: 14,
   },
-  inputIcon: { fontSize: 16, marginRight: 12 },
+
   input: { flex: 1, paddingVertical: 16, fontSize: FONT_SIZES.md, color: COLORS.text },
   button: {
     backgroundColor: COLORS.primary, borderRadius: 20, padding: 17, alignItems: 'center',

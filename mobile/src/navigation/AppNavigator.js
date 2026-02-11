@@ -2,7 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONT_SIZES } from '../constants/theme';
 
@@ -22,10 +23,19 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Home: '🏠', Insights: '📊', Budgets: '💰', Profile: '👤' };
+  const iconMap = {
+    Home: focused ? 'home' : 'home-outline',
+    Insights: focused ? 'stats-chart' : 'stats-chart-outline',
+    Budgets: focused ? 'wallet' : 'wallet-outline',
+    Profile: focused ? 'person' : 'person-outline',
+  };
   return (
     <View style={{ alignItems: 'center' }}>
-      <Text style={{ fontSize: focused ? 22 : 18, opacity: focused ? 1 : 0.4 }}>{icons[label] || '📋'}</Text>
+      <Ionicons
+        name={iconMap[label] || 'ellipsis-horizontal-outline'}
+        size={focused ? 24 : 22}
+        color={focused ? COLORS.primary : COLORS.textTertiary}
+      />
       {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 4 }} />}
     </View>
   );
