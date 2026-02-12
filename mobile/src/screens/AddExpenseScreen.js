@@ -2,35 +2,79 @@
  * AddExpenseScreen with Quick Entry (search bar style) as default,
  * and a toggle to switch to the full form.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import Voice from '@react-native-community/voice';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
-function parseQuickEntry(input) {
-  // Example: "1200 lunch Java House" or "5000 rent"
-  const match = input.match(/^(\d+(?:[.,]\d{1,2})?)\s+(.+?)(?:\s+(.+))?$/);
-  if (!match) return { amount: '', description: '', merchant: '' };
-  const amount = match[1].replace(',', '.');
-  const rest = match[2] + (match[3] ? ' ' + match[3] : '');
-  // Try to split description and merchant by last space
-  const lastSpace = rest.lastIndexOf(' ');
-  if (lastSpace === -1) return { amount, description: rest, merchant: '' };
-  return {
-    amount,
-    description: rest.substring(0, lastSpace),
-    merchant: rest.substring(lastSpace + 1),
-  };
-}
 
 export default function AddExpenseScreen({ navigation }) {
+  function parseQuickEntry(input) {
+    // Example: "1200 lunch Java House" or "5000 rent"
+    const match = input.match(/^\d+(?:[.,]\d{1,2})?\s+(.+?)(?:\s+(.+))?$/);
+    if (!match) return { amount: '', description: '', merchant: '' };
+    const amount = match[1].replace(',', '.');
+    const rest = match[2] + (match[3] ? ' ' + match[3] : '');
+    // Try to split description and merchant by last space
+    const lastSpace = rest.lastIndexOf(' ');
+    if (lastSpace === -1) return { amount, description: rest, merchant: '' };
+    return {
+      amount,
+      description: rest.substring(0, lastSpace),
+      merchant: rest.substring(lastSpace + 1),
+    };
+  }
+
   const [quickInput, setQuickInput] = useState('');
   const [useForm, setUseForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
+  const voiceTimeout = useRef(null);
+
+  // Voice recognition handlers
+  React.useEffect(() => {
+    Voice.onSpeechResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setQuickInput(e.value[0]);
+      }
+      setIsListening(false);
+    };
+    Voice.onSpeechError = (e) => {
+      setVoiceError(e.error?.message || 'Voice error');
+      setIsListening(false);
+    };
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+      if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+    };
+  }, []);
+
+  const startListening = async () => {
+    setVoiceError(null);
+    try {
+      setIsListening(true);
+      await Voice.start('en-US');
+      // Auto-stop after 8 seconds
+      voiceTimeout.current = setTimeout(stopListening, 8000);
+    } catch (e) {
+      setVoiceError(e.message);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = async () => {
+    try {
+      await Voice.stop();
+    } catch (e) {}
+    setIsListening(false);
+    if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+  };
 
   const parsed = parseQuickEntry(quickInput);
 
@@ -105,10 +149,16 @@ export default function AddExpenseScreen({ navigation }) {
               onSubmitEditing={handleQuickSubmit}
               returnKeyType="done"
             />
+            <TouchableOpacity style={styles.micBtn} onPress={isListening ? stopListening : startListening} disabled={loading}>
+              <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={26} color={isListening ? COLORS.primary : COLORS.textSecondary} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.quickBtn} onPress={handleQuickSubmit} disabled={loading}>
               <Ionicons name="arrow-up-circle" size={28} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
+          {voiceError ? (
+            <Text style={{ color: 'red', marginBottom: 6, marginLeft: 8 }}>{voiceError}</Text>
+          ) : null}
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
             <Text style={styles.previewText}><Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Amount:</Text> {parsed.amount || '—'}</Text>
@@ -168,7 +218,8 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textLight, marginHorizontal: 2 },
   quickBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, ...GLASS_STYLE, paddingHorizontal: 12, marginBottom: 18 },
   quickInput: { flex: 1, fontSize: 18, color: COLORS.text, paddingVertical: 16 },
-  quickBtn: { marginLeft: 8 },
+  micBtn: { marginLeft: 4, marginRight: 4 },
+  quickBtn: { marginLeft: 4 },
   previewCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, marginBottom: 24, ...GLASS_STYLE },
   previewLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 6 },
   previewText: { fontSize: FONT_SIZES.md, color: COLORS.text, marginBottom: 2 },

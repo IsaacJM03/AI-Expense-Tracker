@@ -44,7 +44,7 @@ function getRandomQuote() {
 }
 
 export default function HomeScreen({ navigation, route }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -148,6 +148,12 @@ export default function HomeScreen({ navigation, route }) {
   }
 
   const fetchData = useCallback(async (force = false) => {
+    console.debug('[Home] fetchData token present?', !!token);
+    // Don't attempt to fetch without an auth token (prevents 401 spam on cold start)
+    if (!token) {
+      console.debug('[Home] fetchData skipped - no token');
+      return;
+    }
     const now = Date.now();
     // Skip if data is fresh and not forced
     if (!force && lastFetchRef.current && now - lastFetchRef.current < STALE_MS) {
@@ -188,6 +194,13 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, []); // stable reference — no deps needed since we use setters
 
+  // When token becomes available (after login/restore), force a data fetch
+  React.useEffect(() => {
+    if (token) {
+      console.debug('[Home] token available - forcing data fetch');
+      fetchData(true);
+    }
+  }, [token]);
   useFocusEffect(
     useCallback(() => {
       fetchData(false); // non-forced: skips if data is fresh

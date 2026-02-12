@@ -4,7 +4,7 @@
     "slug": "ai-expense-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "https://cdn-icons-png.flaticon.com/512/833/833314.png",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#4F46E5"
@@ -14,7 +14,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aiexpensetracker.app"
+      "bundleIdentifier": "com.aiexpensetracker.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +30,11 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6f2ac79e-8a0c-43bb-9582-bd8f9c68227f"
+      }
+    }
   }
 }

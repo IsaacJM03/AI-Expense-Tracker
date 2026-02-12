@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -9,8 +10,35 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In production, load token from SecureStore
-    setLoading(false);
+    // Load token and user from SecureStore on startup
+    let mounted = true;
+    (async () => {
+      try {
+        const storedToken = await SecureStore.getItemAsync('token');
+        const storedUser = await SecureStore.getItemAsync('user');
+        if (mounted) {
+          console.debug('[Auth] restored token?', !!storedToken);
+          if (storedToken) {
+            setToken(storedToken);
+            api.setToken(storedToken);
+          }
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+            } catch (e) {
+              setUser(null);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore errors reading secure store
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const login = async (email, password) => {
@@ -18,6 +46,11 @@ export function AuthProvider({ children }) {
     setUser(data.user);
     setToken(data.token);
     api.setToken(data.token);
+    try {
+      await SecureStore.setItemAsync('token', data.token);
+      await SecureStore.setItemAsync('user', JSON.stringify(data.user));
+    } catch (e) {}
+    console.debug('[Auth] login stored token? ', !!data.token);
     return data;
   };
 
@@ -26,6 +59,11 @@ export function AuthProvider({ children }) {
     setUser(data.user);
     setToken(data.token);
     api.setToken(data.token);
+    try {
+      await SecureStore.setItemAsync('token', data.token);
+      await SecureStore.setItemAsync('user', JSON.stringify(data.user));
+    } catch (e) {}
+    console.debug('[Auth] register stored token? ', !!data.token);
     return data;
   };
 
@@ -33,11 +71,29 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     api.setToken(null);
+    try {
+      SecureStore.deleteItemAsync('token');
+      SecureStore.deleteItemAsync('user');
+    } catch (e) {}
+    console.debug('[Auth] logged out and cleared secure store');
   };
 
   const updateUser = (updates) => {
     setUser((prev) => (prev ? { ...prev, ...updates } : prev));
+    // persist updated user
+    try {
+      if (user) {
+        const next = { ...(user || {}), ...(updates || {}) };
+        SecureStore.setItemAsync('user', JSON.stringify(next));
+      }
+    } catch (e) {}
   };
+
+  // Keep API client in sync with token state in case other parts modify it
+  useEffect(() => {
+    api.setToken(token);
+    console.debug('[Auth] api token synced:', !!token);
+  }, [token]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser, isAuthenticated: !!token }}>

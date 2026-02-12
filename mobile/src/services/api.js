@@ -1,4 +1,5 @@
 import { API_URL } from '../constants/theme';
+import * as SecureStore from 'expo-secure-store';
 
 class ApiService {
   constructor() {
@@ -12,17 +13,30 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+    // Ensure token is available (fallback to secure store if needed)
+    if (!this.token) {
+      try {
+        const stored = await SecureStore.getItemAsync('token');
+        if (stored) this.token = stored;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       ...(this.token && { Authorization: `Bearer ${this.token}` }),
       ...options.headers,
     };
+    console.debug('[API] using token?', !!this.token);
+    console.debug('[API] request', endpoint, { url, headers, method: options.method || 'GET' });
 
     try {
       const response = await fetch(url, { ...options, headers });
       const data = await response.json();
 
       if (!response.ok) {
+        console.debug('[API] response error', endpoint, response.status, data);
         throw new Error(data.error || `HTTP ${response.status}`);
       }
 

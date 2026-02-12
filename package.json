@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@react-native-community/voice": "^1.1.9",
+    "react-native-voice": "^0.3.0"
+  }
+}
