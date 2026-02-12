@@ -5,7 +5,7 @@ import {
   LayoutAnimation, Platform, UIManager, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import Audio from '../services/audio';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';

@@ -5,7 +5,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import Audio from '../services/audio';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
@@ -176,7 +176,7 @@ export default function AddExpenseScreen({ navigation }) {
               onSubmitEditing={handleQuickSubmit}
               returnKeyType="done"
             />
-            <TouchableOpacity style={styles.micBtn} onPress={isListening ? stopListening : startListening} disabled={loading}>
+            <TouchableOpacity style={styles.micBtn} onPress={isListening ? stopRecording : startRecording} disabled={loading}>
               <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={26} color={isListening ? COLORS.primary : COLORS.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickBtn} onPress={handleQuickSubmit} disabled={loading}>
