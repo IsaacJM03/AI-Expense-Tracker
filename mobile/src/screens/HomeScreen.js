@@ -5,11 +5,24 @@ import {
   LayoutAnimation, Platform, UIManager, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { formatCurrency } from '../utils/currency';
+
+// Try to load voice module safely (won't crash in Expo Go)
+let Voice = null;
+try {
+  // require so bundler doesn't fail if native module missing at runtime
+  // prefer default export if present
+  // eslint-disable-next-line global-require
+  const v = require('@react-native-community/voice');
+  Voice = v && (v.default || v);
+} catch (e) {
+  Voice = null;
+}
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -108,6 +121,60 @@ export default function HomeScreen({ navigation, route }) {
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(false);
     const inputRef = useRef(null);
+    const [isListening, setIsListening] = useState(false);
+    const [voiceError, setVoiceError] = useState(null);
+    const voiceTimeout = useRef(null);
+
+    React.useEffect(() => {
+      if (!Voice) return undefined;
+      Voice.onSpeechResults = (e) => {
+        if (e.value && e.value.length > 0) {
+          setText((prev) => (prev ? prev + ' ' + e.value[0] : e.value[0]));
+        }
+        setIsListening(false);
+      };
+      Voice.onSpeechError = (e) => {
+        setVoiceError(e.error?.message || 'Voice error');
+        setIsListening(false);
+      };
+      return () => {
+        try { Voice.destroy().then(Voice.removeAllListeners); } catch (err) {}
+        if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+      };
+    }, []);
+
+    const startListening = async () => {
+      if (!Voice) {
+        setVoiceError('Voice not available');
+        return;
+      }
+      setVoiceError(null);
+      try {
+        // Prevent calling native speech APIs when the build is missing the
+        // required Info.plist usage description. Calling `Voice.start` without
+        // `NSSpeechRecognitionUsageDescription` can crash the app on iOS.
+        const speechDesc = Constants.manifest?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription ||
+          Constants.expoConfig?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription;
+        if (!speechDesc && Platform.OS === 'ios') {
+          setVoiceError('Speech permission not declared in app build. Rebuild required.');
+          Alert.alert('Mic unavailable', 'This build is missing speech usage permission. Rebuild the app with NSSpeechRecognitionUsageDescription in Info.plist.');
+          return;
+        }
+        setIsListening(true);
+        await Voice.start('en-US');
+        voiceTimeout.current = setTimeout(stopListening, 8000);
+      } catch (e) {
+        setVoiceError(e.message);
+        setIsListening(false);
+      }
+    };
+
+    const stopListening = async () => {
+      if (!Voice) return;
+      try { await Voice.stop(); } catch (e) {}
+      setIsListening(false);
+      if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+    };
 
     const submit = async () => {
       if (loading) return;
@@ -140,6 +207,9 @@ export default function HomeScreen({ navigation, route }) {
             autoCapitalize="none"
           />
         </View>
+        <TouchableOpacity style={{ marginRight: 8, alignSelf: 'center' }} onPress={isListening ? stopListening : startListening} disabled={loading}>
+          <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={28} color={isListening ? COLORS.primary : COLORS.textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.quickAddBtn} onPress={submit} disabled={loading}>
           <Ionicons name="add-circle" size={32} color={COLORS.primary} />
         </TouchableOpacity>

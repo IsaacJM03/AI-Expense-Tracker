@@ -5,6 +5,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import Voice from '@react-native-community/voice';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
@@ -58,6 +59,16 @@ export default function AddExpenseScreen({ navigation }) {
   const startListening = async () => {
     setVoiceError(null);
     try {
+      // Prevent calling native speech APIs when the build is missing the
+      // required Info.plist usage description. Calling `Voice.start` without
+      // `NSSpeechRecognitionUsageDescription` can crash the app on iOS.
+      const speechDesc = Constants.manifest?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription ||
+        Constants.expoConfig?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription;
+      if (!speechDesc && Platform.OS === 'ios') {
+        setVoiceError('Speech permission not declared in app build. Rebuild required.');
+        Alert.alert('Mic unavailable', 'This build is missing speech usage permission. Rebuild the app with NSSpeechRecognitionUsageDescription in Info.plist.');
+        return;
+      }
       setIsListening(true);
       await Voice.start('en-US');
       // Auto-stop after 8 seconds
