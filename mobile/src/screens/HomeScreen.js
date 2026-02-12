@@ -113,12 +113,17 @@ export default function HomeScreen({ navigation, route }) {
     const inputRef = useRef(null);
     const [isListening, setIsListening] = useState(false);
     const [voiceError, setVoiceError] = useState(null);
+    const [lastDebug, setLastDebug] = useState('');
     const voiceTimeout = useRef(null);
     const recordingRef = useRef(null);
     const startListening = async () => {
+      console.log('[Home QuickEntry] startListening pressed');
+      setLastDebug('startListening pressed');
       setVoiceError(null);
       try {
         const { granted } = await Audio.requestPermissionsAsync();
+        console.log('[Home QuickEntry] permission', granted);
+        setLastDebug(`permission: ${granted}`);
         if (!granted) {
           setVoiceError('Microphone permission denied');
           Alert.alert('Permission needed', 'Please allow microphone access to use voice input.');
@@ -130,6 +135,8 @@ export default function HomeScreen({ navigation, route }) {
         await recording.startAsync();
         recordingRef.current = recording;
         setIsListening(true);
+        console.log('[Home QuickEntry] recording started');
+        setLastDebug('recording started');
         voiceTimeout.current = setTimeout(async () => { await stopListening(); }, 8000);
       } catch (e) {
         if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
@@ -139,12 +146,16 @@ export default function HomeScreen({ navigation, route }) {
           console.error('Missing ExponentAV:', e);
           return;
         }
+        console.error('[Home QuickEntry] startListening error', e);
+        setLastDebug(`start error: ${e.message || e}`);
         setVoiceError(e.message || 'Failed to start recording');
         setIsListening(false);
       }
     };
 
     const stopListening = async () => {
+      console.log('[Home QuickEntry] stopListening pressed');
+      setLastDebug('stopListening pressed');
       try {
         const recording = recordingRef.current;
         if (!recording) return;
@@ -152,6 +163,8 @@ export default function HomeScreen({ navigation, route }) {
         const uri = recording.getURI();
         recordingRef.current = null;
         setIsListening(false);
+        console.log('[Home QuickEntry] recording stopped, uri=', uri);
+        setLastDebug(`stopped, uri=${uri}`);
         if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
 
         try {
@@ -161,7 +174,7 @@ export default function HomeScreen({ navigation, route }) {
           } else {
             setVoiceError('No transcription returned');
           }
-        } catch (uErr) {
+          } catch (uErr) {
           if (uErr && typeof uErr.message === 'string' && uErr.message.includes('ExponentAV')) {
             const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
             setVoiceError(msg);
@@ -169,6 +182,8 @@ export default function HomeScreen({ navigation, route }) {
             console.error('Missing ExponentAV:', uErr);
             return;
           }
+          console.error('[Home QuickEntry] upload error', uErr);
+          setLastDebug(`upload error: ${uErr.message || uErr}`);
           setVoiceError(uErr.message || 'STT upload failed');
         }
       } catch (e) {
@@ -179,6 +194,8 @@ export default function HomeScreen({ navigation, route }) {
             console.error('Missing ExponentAV:', e);
             return;
           }
+          console.error('[Home QuickEntry] stopListening error', e);
+          setLastDebug(`stop error: ${e.message || e}`);
           setVoiceError(e.message || 'Failed to stop recording');
           setIsListening(false);
       }
@@ -218,6 +235,9 @@ export default function HomeScreen({ navigation, route }) {
         <TouchableOpacity style={{ marginRight: 8, alignSelf: 'center' }} onPress={isListening ? stopListening : startListening} disabled={loading}>
           <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={28} color={isListening ? COLORS.primary : COLORS.textSecondary} />
         </TouchableOpacity>
+        {!!lastDebug && (
+          <Text style={{ color: '#666', fontSize: 12, marginLeft: 6 }}>{lastDebug}</Text>
+        )}
         <TouchableOpacity style={styles.quickAddBtn} onPress={submit} disabled={loading}>
           <Ionicons name="add-circle" size={32} color={COLORS.primary} />
         </TouchableOpacity>

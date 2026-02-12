@@ -4,20 +4,45 @@
 
 let Module = null;
 let source = null;
+let Constants = null;
 try {
-  // prefer new package
   // eslint-disable-next-line global-require
-  Module = require('expo-audio');
-  source = 'expo-audio';
+  Constants = require('expo-constants');
 } catch (e) {
+  Constants = null;
+}
+const isExpoGo = Constants && Constants.appOwnership === 'expo';
+
+// If running in Expo Go prefer `expo-av` (bundled). Otherwise prefer `expo-audio`.
+if (isExpoGo) {
   try {
-    // fallback to expo-av
     // eslint-disable-next-line global-require
     Module = require('expo-av');
     source = 'expo-av';
-  } catch (err) {
-    Module = null;
-    source = null;
+  } catch (e) {
+    try {
+      // eslint-disable-next-line global-require
+      Module = require('expo-audio');
+      source = 'expo-audio';
+    } catch (err) {
+      Module = null;
+      source = null;
+    }
+  }
+} else {
+  try {
+    // eslint-disable-next-line global-require
+    Module = require('expo-audio');
+    source = 'expo-audio';
+  } catch (e) {
+    try {
+      // eslint-disable-next-line global-require
+      Module = require('expo-av');
+      source = 'expo-av';
+    } catch (err) {
+      Module = null;
+      source = null;
+    }
   }
 }
 
