@@ -12,6 +12,7 @@ const incomeRoutes = require('./routes/incomes');
 const budgetRoutes = require('./routes/budgets');
 const analyticsRoutes = require('./routes/analytics');
 const v1Routes = require('./routes/v1');
+const sttRoutes = require('./routes/stt');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/incomes', incomeRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/v1', v1Routes);
+app.use('/api/stt', sttRoutes);
 
 // Error handling
 app.use(notFound);

@@ -5,24 +5,14 @@ import {
   LayoutAnimation, Platform, UIManager, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import { Audio } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { formatCurrency } from '../utils/currency';
 
-// Try to load voice module safely (won't crash in Expo Go)
-let Voice = null;
-try {
-  // require so bundler doesn't fail if native module missing at runtime
-  // prefer default export if present
-  // eslint-disable-next-line global-require
-  const v = require('@react-native-community/voice');
-  Voice = v && (v.default || v);
-} catch (e) {
-  Voice = null;
-}
+// Use expo-av for recording in Expo Go; avoid native Voice module.
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -124,56 +114,74 @@ export default function HomeScreen({ navigation, route }) {
     const [isListening, setIsListening] = useState(false);
     const [voiceError, setVoiceError] = useState(null);
     const voiceTimeout = useRef(null);
-
-    React.useEffect(() => {
-      if (!Voice) return undefined;
-      Voice.onSpeechResults = (e) => {
-        if (e.value && e.value.length > 0) {
-          setText((prev) => (prev ? prev + ' ' + e.value[0] : e.value[0]));
-        }
-        setIsListening(false);
-      };
-      Voice.onSpeechError = (e) => {
-        setVoiceError(e.error?.message || 'Voice error');
-        setIsListening(false);
-      };
-      return () => {
-        try { Voice.destroy().then(Voice.removeAllListeners); } catch (err) {}
-        if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
-      };
-    }, []);
-
+    const recordingRef = useRef(null);
     const startListening = async () => {
-      if (!Voice) {
-        setVoiceError('Voice not available');
-        return;
-      }
       setVoiceError(null);
       try {
-        // Prevent calling native speech APIs when the build is missing the
-        // required Info.plist usage description. Calling `Voice.start` without
-        // `NSSpeechRecognitionUsageDescription` can crash the app on iOS.
-        const speechDesc = Constants.manifest?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription ||
-          Constants.expoConfig?.ios?.infoPlist?.NSSpeechRecognitionUsageDescription;
-        if (!speechDesc && Platform.OS === 'ios') {
-          setVoiceError('Speech permission not declared in app build. Rebuild required.');
-          Alert.alert('Mic unavailable', 'This build is missing speech usage permission. Rebuild the app with NSSpeechRecognitionUsageDescription in Info.plist.');
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) {
+          setVoiceError('Microphone permission denied');
+          Alert.alert('Permission needed', 'Please allow microphone access to use voice input.');
           return;
         }
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        const recording = new Audio.Recording();
+        await recording.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+        await recording.startAsync();
+        recordingRef.current = recording;
         setIsListening(true);
-        await Voice.start('en-US');
-        voiceTimeout.current = setTimeout(stopListening, 8000);
+        voiceTimeout.current = setTimeout(async () => { await stopListening(); }, 8000);
       } catch (e) {
-        setVoiceError(e.message);
+        if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
+          const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
+          setVoiceError(msg);
+          Alert.alert('Audio not available', msg);
+          console.error('Missing ExponentAV:', e);
+          return;
+        }
+        setVoiceError(e.message || 'Failed to start recording');
         setIsListening(false);
       }
     };
 
     const stopListening = async () => {
-      if (!Voice) return;
-      try { await Voice.stop(); } catch (e) {}
-      setIsListening(false);
-      if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+      try {
+        const recording = recordingRef.current;
+        if (!recording) return;
+        await recording.stopAndUnloadAsync();
+        const uri = recording.getURI();
+        recordingRef.current = null;
+        setIsListening(false);
+        if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
+
+        try {
+          const res = await api.uploadAudioForSTT(uri);
+          if (res && res.text) {
+            setText((prev) => (prev ? prev + ' ' + res.text : res.text));
+          } else {
+            setVoiceError('No transcription returned');
+          }
+        } catch (uErr) {
+          if (uErr && typeof uErr.message === 'string' && uErr.message.includes('ExponentAV')) {
+            const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
+            setVoiceError(msg);
+            Alert.alert('Audio not available', msg);
+            console.error('Missing ExponentAV:', uErr);
+            return;
+          }
+          setVoiceError(uErr.message || 'STT upload failed');
+        }
+      } catch (e) {
+          if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
+            const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
+            setVoiceError(msg);
+            Alert.alert('Audio not available', msg);
+            console.error('Missing ExponentAV:', e);
+            return;
+          }
+          setVoiceError(e.message || 'Failed to stop recording');
+          setIsListening(false);
+      }
     };
 
     const submit = async () => {

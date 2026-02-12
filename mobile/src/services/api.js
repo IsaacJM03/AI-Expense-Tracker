@@ -261,6 +261,43 @@ class ApiService {
     }
   }
 
+  async uploadAudioForSTT(audioUri) {
+    const url = `${this.baseUrl}/stt`;
+    const formData = new FormData();
+    const uriParts = audioUri.split('.');
+    const ext = uriParts[uriParts.length - 1] || 'wav';
+    const mimeMap = { wav: 'audio/wav', m4a: 'audio/x-m4a', mp3: 'audio/mpeg', aac: 'audio/aac' };
+    const mimeType = mimeMap[ext.toLowerCase()] || 'audio/wav';
+
+    formData.append('audio', {
+      uri: audioUri,
+      name: `recording.${ext}`,
+      type: mimeType,
+    });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(this.token && { Authorization: `Bearer ${this.token}` }),
+          // Let fetch set Content-Type with boundary for multipart
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      if (error.message === 'Network request failed') {
+        throw new Error('No internet connection. Please try again when online.');
+      }
+      throw error;
+    }
+  }
+
   // V1: AI/LLM endpoints
   async getAIStatus() {
     return this.request('/v1/ai/status');
