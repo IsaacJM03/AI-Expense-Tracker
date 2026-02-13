@@ -1,0 +1,207 @@
+/**
+ * MySQL Database Migration Script
+ * 
+ * Design decisions:
+ * - UUIDs as primary keys for distributed-friendly IDs
+ * - Separate expense_raw_inputs table preserves original user input (never overwrite raw data)
+ * - Hierarchical categories via parent_id self-reference
+ * - Indexes on foreign keys and common query patterns (user_id, date ranges)
+ * - Financial amounts stored as DECIMAL(15,2) for precision
+ * - Timestamps use DATETIME with defaults for audit trails
+ * - User identity data separated from financial data for security
+ */
+
+const migrations = [
+  // Users table - identity data only
+  `CREATE TABLE IF NOT EXISTS users (
+    id CHAR(36) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name VARCHAR(100),
+    currency VARCHAR(3) DEFAULT 'KES',
+    timezone VARCHAR(50) DEFAULT 'Africa/Nairobi',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_email (email)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    // Add assistant permission flag to users
+    `ALTER TABLE users
+      ADD COLUMN assistant_permission BOOLEAN DEFAULT FALSE,
+      ADD COLUMN assistant_permission_granted_at DATETIME NULL`,
+
+  // Categories - hierarchical via parent_id
+  `CREATE TABLE IF NOT EXISTS categories (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36),
+    name VARCHAR(100) NOT NULL,
+    icon VARCHAR(10),
+    color VARCHAR(7),
+    parent_id CHAR(36),
+    is_system BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_categories_user (user_id),
+    INDEX idx_categories_parent (parent_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Expenses - core financial data
+  `CREATE TABLE IF NOT EXISTS expenses (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    category_id CHAR(36),
+    amount DECIMAL(15,2) NOT NULL,
+    description VARCHAR(500),
+    merchant VARCHAR(255),
+    expense_date DATETIME NOT NULL,
+    payment_method VARCHAR(50),
+    is_recurring BOOLEAN DEFAULT FALSE,
+    confidence_score DECIMAL(3,2) DEFAULT 1.00,
+    source ENUM('manual','ocr','ocr-image','voice','quick_entry') DEFAULT 'manual',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_expenses_user (user_id),
+    INDEX idx_expenses_date (expense_date),
+    INDEX idx_expenses_user_date (user_id, expense_date),
+    INDEX idx_expenses_category (category_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Raw inputs - preserves original user input; never modified
+  `CREATE TABLE IF NOT EXISTS expense_raw_inputs (
+    id CHAR(36) PRIMARY KEY,
+    expense_id CHAR(36) NOT NULL,
+    raw_text TEXT,
+    ocr_raw_text TEXT,
+    ocr_image_url VARCHAR(500),
+    input_type ENUM('text','ocr','ocr-image','voice') NOT NULL,
+    parsed_data JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+    INDEX idx_raw_expense (expense_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Incomes
+  `CREATE TABLE IF NOT EXISTS incomes (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    source_name VARCHAR(255) NOT NULL,
+    description VARCHAR(500),
+    income_date DATETIME NOT NULL,
+    is_recurring BOOLEAN DEFAULT FALSE,
+    recurrence_interval ENUM('weekly','biweekly','monthly','quarterly','yearly'),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_incomes_user (user_id),
+    INDEX idx_incomes_date (income_date)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Budgets - behavior-based, not just static limits
+  `CREATE TABLE IF NOT EXISTS budgets (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    category_id CHAR(36),
+    amount DECIMAL(15,2) NOT NULL,
+    period ENUM('weekly','monthly','quarterly','yearly') DEFAULT 'monthly',
+    start_date DATE NOT NULL,
+    end_date DATE,
+    is_adaptive BOOLEAN DEFAULT TRUE,
+    baseline_amount DECIMAL(15,2),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_budgets_user (user_id),
+    INDEX idx_budgets_period (start_date, end_date)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Forecasts - generated by AI/analytics engine
+  `CREATE TABLE IF NOT EXISTS forecasts (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    forecast_type ENUM('balance','category_spend','budget_overrun','safe_to_spend') NOT NULL,
+    category_id CHAR(36),
+    predicted_amount DECIMAL(15,2) NOT NULL,
+    confidence DECIMAL(3,2),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    model_version VARCHAR(50),
+    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_forecasts_user (user_id),
+    INDEX idx_forecasts_period (period_start, period_end)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // Insights - spending pattern observations
+  `CREATE TABLE IF NOT EXISTS insights (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    insight_type ENUM('pattern','anomaly','trend','milestone') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    data JSON,
+    priority TINYINT DEFAULT 5,
+    is_read BOOLEAN DEFAULT FALSE,
+    expires_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_insights_user (user_id),
+    INDEX idx_insights_unread (user_id, is_read)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // AI Recommendations - actionable advice
+  `CREATE TABLE IF NOT EXISTS ai_recommendations (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    recommendation_type ENUM('savings','budget_adjust','spending_cut','income_optimize','goal') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    potential_savings DECIMAL(15,2),
+    action_data JSON,
+    status ENUM('pending','accepted','dismissed','expired') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_recommendations_user (user_id),
+    INDEX idx_recommendations_status (user_id, status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+];
+
+async function migrate(connection) {
+  for (const sql of migrations) {
+    try {
+      await connection.execute(sql);
+    } catch (err) {
+      // Ignore duplicate-column errors (1060) to make migrations idempotent
+      if (err && err.errno === 1060) {
+        console.log('Migration warning: column already exists, skipping');
+        continue;
+      }
+      throw err;
+    }
+  }
+  console.log('All migrations completed successfully.');
+}
+
+// CLI runner
+if (require.main === module) {
+  const { getPool } = require('../config/database');
+  (async () => {
+    try {
+      const pool = getPool();
+      const conn = await pool.getConnection();
+      await migrate(conn);
+      conn.release();
+      process.exit(0);
+    } catch (err) {
+      console.error('Migration failed:', err.message);
+      process.exit(1);
+    }
+  })();
+}
+
+module.exports = { migrate, migrations };

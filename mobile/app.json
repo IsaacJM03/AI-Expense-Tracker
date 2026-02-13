@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "AI Expense Tracker",
+    "slug": "ai-expense-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "https://cdn-icons-png.flaticon.com/512/833/833314.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#4F46E5"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aiexpensetracker.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "This app uses the microphone to capture voice input for quick expense entry.",
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert spoken expense entries into text.",
+        "NSCameraUsageDescription": "Camera access is used for scanning receipts and extracting expense data."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4F46E5"
+      },
+      "package": "com.aiexpensetracker.app",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-audio"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6f2ac79e-8a0c-43bb-9582-bd8f9c68227f"
+      }
+    }
+  }
+}
