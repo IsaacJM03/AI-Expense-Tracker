@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@react-native-community/voice": "^1.1.9",
+    "expo": "^54.0.23",
     "react-native-voice": "^0.3.0"
   }
 }

@@ -11,6 +11,9 @@
  * - User identity data separated from financial data for security
  */
 
+const mysql = require('mysql2/promise');
+const config = require('../config');
+
 const migrations = [
   // Users table - identity data only
   `CREATE TABLE IF NOT EXISTS users (
@@ -171,6 +174,20 @@ const migrations = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
+function escapeIdentifier(value) {
+  return String(value).replace(/`/g, '``');
+}
+
+async function ensureDatabaseExists() {
+  const { host, port, user, password, database } = config.db;
+  const connection = await mysql.createConnection({ host, port, user, password });
+  const dbName = escapeIdentifier(database);
+  await connection.execute(
+    `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  );
+  await connection.end();
+}
+
 async function migrate(connection) {
   for (const sql of migrations) {
     try {
@@ -181,6 +198,8 @@ async function migrate(connection) {
         console.log('Migration warning: column already exists, skipping');
         continue;
       }
+      console.error('Migration step failed:', sql);
+      console.error('Migration error:', err && err.sqlMessage ? err.sqlMessage : err);
       throw err;
     }
   }
@@ -192,13 +211,21 @@ if (require.main === module) {
   const { getPool } = require('../config/database');
   (async () => {
     try {
+      await ensureDatabaseExists();
       const pool = getPool();
       const conn = await pool.getConnection();
       await migrate(conn);
       conn.release();
       process.exit(0);
     } catch (err) {
-      console.error('Migration failed:', err.message);
+      const message = err && err.message ? err.message : String(err);
+      console.error('Migration failed:', message);
+      if (err && err.code) {
+        console.error('Error code:', err.code);
+      }
+      if (err && err.stack) {
+        console.error(err.stack);
+      }
       process.exit(1);
     }
   })();
