@@ -28,7 +28,9 @@
       },
       "package": "com.aiexpensetracker.app",
       "permissions": [
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -43,8 +45,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "6f2ac79e-8a0c-43bb-9582-bd8f9c68227f"
+        "projectId": "ecff1c12-4878-4f24-92b9-3bef67f9e591"
       }
-    }
+    },
+    "owner": "isaacm03"
   }
 }

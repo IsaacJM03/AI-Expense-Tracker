@@ -5,14 +5,12 @@ import {
   LayoutAnimation, Platform, UIManager, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Audio from '../services/audio';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { formatCurrency } from '../utils/currency';
-
-// Use expo-av for recording in Expo Go; avoid native Voice module.
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -106,100 +104,14 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
-  // Local QuickEntry component to avoid parent re-renders affecting cursor
+  // Local QuickEntry component — avoids parent re-renders affecting cursor position
   function QuickEntry({ onSubmit }) {
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(false);
     const inputRef = useRef(null);
-    const [isListening, setIsListening] = useState(false);
-    const [voiceError, setVoiceError] = useState(null);
-    const [lastDebug, setLastDebug] = useState('');
-    const voiceTimeout = useRef(null);
-    const recordingRef = useRef(null);
-    const startListening = async () => {
-      console.log('[Home QuickEntry] startListening pressed');
-      setLastDebug('startListening pressed');
-      setVoiceError(null);
-      try {
-        const { granted } = await Audio.requestPermissionsAsync();
-        console.log('[Home QuickEntry] permission', granted);
-        setLastDebug(`permission: ${granted}`);
-        if (!granted) {
-          setVoiceError('Microphone permission denied');
-          Alert.alert('Permission needed', 'Please allow microphone access to use voice input.');
-          return;
-        }
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        const recording = new Audio.Recording();
-        await recording.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
-        await recording.startAsync();
-        recordingRef.current = recording;
-        setIsListening(true);
-        console.log('[Home QuickEntry] recording started');
-        setLastDebug('recording started');
-        voiceTimeout.current = setTimeout(async () => { await stopListening(); }, 8000);
-      } catch (e) {
-        if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
-          const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
-          setVoiceError(msg);
-          Alert.alert('Audio not available', msg);
-          console.error('Missing ExponentAV:', e);
-          return;
-        }
-        console.error('[Home QuickEntry] startListening error', e);
-        setLastDebug(`start error: ${e.message || e}`);
-        setVoiceError(e.message || 'Failed to start recording');
-        setIsListening(false);
-      }
-    };
+    const { isListening, partialText, startListening, stopListening } = useVoiceInput();
 
-    const stopListening = async () => {
-      console.log('[Home QuickEntry] stopListening pressed');
-      setLastDebug('stopListening pressed');
-      try {
-        const recording = recordingRef.current;
-        if (!recording) return;
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
-        recordingRef.current = null;
-        setIsListening(false);
-        console.log('[Home QuickEntry] recording stopped, uri=', uri);
-        setLastDebug(`stopped, uri=${uri}`);
-        if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
-
-        try {
-          const res = await api.uploadAudioForSTT(uri);
-          if (res && res.text) {
-            setText((prev) => (prev ? prev + ' ' + res.text : res.text));
-          } else {
-            setVoiceError('No transcription returned');
-          }
-          } catch (uErr) {
-          if (uErr && typeof uErr.message === 'string' && uErr.message.includes('ExponentAV')) {
-            const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
-            setVoiceError(msg);
-            Alert.alert('Audio not available', msg);
-            console.error('Missing ExponentAV:', uErr);
-            return;
-          }
-          console.error('[Home QuickEntry] upload error', uErr);
-          setLastDebug(`upload error: ${uErr.message || uErr}`);
-          setVoiceError(uErr.message || 'STT upload failed');
-        }
-      } catch (e) {
-          if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
-            const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
-            setVoiceError(msg);
-            Alert.alert('Audio not available', msg);
-            console.error('Missing ExponentAV:', e);
-            return;
-          }
-          console.error('[Home QuickEntry] stopListening error', e);
-          setLastDebug(`stop error: ${e.message || e}`);
-          setVoiceError(e.message || 'Failed to stop recording');
-          setIsListening(false);
-      }
-    };
+    const displayText = isListening && partialText ? partialText : text;
 
     const submit = async () => {
       if (loading) return;
@@ -209,37 +121,38 @@ export default function HomeScreen({ navigation, route }) {
       setLoading(false);
       if (created) {
         setText('');
-        // keep focus after submit
         inputRef.current?.focus();
       }
     };
 
     return (
       <View style={styles.quickBarRow}>
-        <View style={styles.quickBar}>
+        <View style={[styles.quickBar, isListening && { borderColor: COLORS.primary, borderWidth: 1.5 }]}>
           <Ionicons name="search-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
           <TextInput
             ref={inputRef}
             style={styles.quickInput}
             placeholder="e.g. 1200 lunch Java House"
-            value={text}
-            onChangeText={setText}
+            value={displayText}
+            onChangeText={(t) => { if (!isListening) setText(t); }}
             placeholderTextColor={COLORS.textTertiary}
             onSubmitEditing={submit}
             returnKeyType="done"
             blurOnSubmit={false}
             autoCorrect={false}
             autoCapitalize="none"
+            editable={!isListening}
           />
         </View>
-        <TouchableOpacity style={{ marginRight: 8, alignSelf: 'center' }} onPress={isListening ? stopListening : startListening} disabled={loading}>
+        <TouchableOpacity
+          style={{ marginRight: 8, alignSelf: 'center' }}
+          onPress={isListening ? stopListening : () => startListening((t) => setText(t))}
+          disabled={loading}
+        >
           <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={28} color={isListening ? COLORS.primary : COLORS.textSecondary} />
         </TouchableOpacity>
-        {!!lastDebug && (
-          <Text style={{ color: '#666', fontSize: 12, marginLeft: 6 }}>{lastDebug}</Text>
-        )}
-        <TouchableOpacity style={styles.quickAddBtn} onPress={submit} disabled={loading}>
-          <Ionicons name="add-circle" size={32} color={COLORS.primary} />
+        <TouchableOpacity style={styles.quickAddBtn} onPress={submit} disabled={loading || isListening}>
+          <Ionicons name="add-circle" size={32} color={loading || isListening ? COLORS.textLight : COLORS.primary} />
         </TouchableOpacity>
       </View>
     );

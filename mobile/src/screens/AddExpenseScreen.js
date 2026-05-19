@@ -1,122 +1,73 @@
 /**
  * AddExpenseScreen with Quick Entry (search bar style) as default,
  * and a toggle to switch to the full form.
+ *
+ * Voice input uses the device's built-in speech recognition
+ * (@react-native-voice/voice → iOS Speech / Android SpeechRecognizer).
+ * Audio never leaves the device.
  */
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Audio from '../services/audio';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import { COLORS, FONT_SIZES, GLASS_STYLE } from '../constants/theme';
 import api from '../services/api';
 
 
-export default function AddExpenseScreen({ navigation }) {
-  function parseQuickEntry(input) {
-    // Example: "1200 lunch Java House" or "5000 rent"
-    const match = input.match(/^\d+(?:[.,]\d{1,2})?\s+(.+?)(?:\s+(.+))?$/);
-    if (!match) return { amount: '', description: '', merchant: '' };
-    const amount = match[1].replace(',', '.');
-    const rest = match[2] + (match[3] ? ' ' + match[3] : '');
-    // Try to split description and merchant by last space
-    const lastSpace = rest.lastIndexOf(' ');
-    if (lastSpace === -1) return { amount, description: rest, merchant: '' };
-    return {
-      amount,
-      description: rest.substring(0, lastSpace),
-      merchant: rest.substring(lastSpace + 1),
-    };
+// ─── on-device expense parser ──────────────────────────────────────────────
+// Handles both quick typed format ("1200 lunch Java House") and natural voice
+// patterns ("spent 1500 on groceries at Carrefour", "paid 800 for coffee").
+function parseQuickEntry(input) {
+  if (!input || !input.trim()) return { amount: '', description: '', merchant: '' };
+  const s = input.trim();
+
+  // Extract the first number (supports 1,200 and 1200.50)
+  const amountMatch = s.match(/\b(\d[\d,]*(?:\.\d{1,2})?)\b/);
+  if (!amountMatch) return { amount: '', description: s, merchant: '' };
+  const amount = amountMatch[1].replace(',', '');
+
+  // Remove the matched amount from the string
+  let remaining = (s.slice(0, amountMatch.index) + s.slice(amountMatch.index + amountMatch[0].length)).trim();
+
+  // Strip common voice lead-ins ("I spent", "paid", "bought", etc.)
+  remaining = remaining.replace(/^(i\s+)?(spent|paid|bought|got)\s+/i, '').trim();
+  remaining = remaining.replace(/^(for|on|from)\s+/i, '').trim();
+
+  // Capture "at <Merchant>" or "from <Merchant>" at the end
+  let merchant = '';
+  const atMatch = remaining.match(/\s+(at|from)\s+(.+)$/i);
+  if (atMatch) {
+    merchant = atMatch[2].trim();
+    remaining = remaining.slice(0, atMatch.index).trim();
   }
 
+  // Strip any leftover prepositions before the description
+  remaining = remaining.replace(/^(for|on|at|from)\s+/i, '').trim();
+
+  // If no "at X" merchant was found and there are ≥2 words, treat the last word
+  // as the merchant (preserves the original typed format: "1200 lunch JavaHouse")
+  if (!merchant) {
+    const parts = remaining.split(/\s+/);
+    if (parts.length >= 2) {
+      merchant = parts[parts.length - 1];
+      remaining = parts.slice(0, -1).join(' ');
+    }
+  }
+
+  return { amount, description: remaining, merchant };
+}
+// ───────────────────────────────────────────────────────────────────────────
+
+
+export default function AddExpenseScreen({ navigation }) {
   const [quickInput, setQuickInput] = useState('');
   const [useForm, setUseForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceError, setVoiceError] = useState(null);
-  const [lastDebug, setLastDebug] = useState('');
-  const voiceTimeout = useRef(null);
 
-  const recordingRef = useRef(null);
-
-  const startRecording = async () => {
-    console.log('[AddExpense] startRecording pressed');
-    setLastDebug('startRecording pressed');
-    setVoiceError(null);
-    try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      console.log('[AddExpense] permission result', granted);
-      setLastDebug(`permission: ${granted}`);
-      if (!granted) {
-        setVoiceError('Microphone permission denied');
-        Alert.alert('Permission needed', 'Please allow microphone access to use voice input.');
-        return;
-      }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsListening(true);
-      console.log('[AddExpense] recording started');
-      setLastDebug('recording started');
-      voiceTimeout.current = setTimeout(stopRecording, 8000);
-    } catch (e) {
-      console.error('[AddExpense] startRecording error', e);
-      setLastDebug(`startRecording error: ${e.message || e}`);
-      // Detect missing ExponentAV native module and show actionable message
-      if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
-        const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
-        setVoiceError(msg);
-        Alert.alert('Audio not available', msg);
-        console.error('Missing ExponentAV:', e);
-        return;
-      }
-      setVoiceError(e.message || 'Failed to start recording');
-      setIsListening(false);
-    }
-  };
-
-  const stopRecording = async () => {
-    console.log('[AddExpense] stopRecording pressed');
-    setLastDebug('stopRecording pressed');
-    try {
-      const recording = recordingRef.current;
-      if (!recording) return;
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      console.log('[AddExpense] recording stopped, uri=', uri);
-      setLastDebug(`stopped, uri=${uri}`);
-      recordingRef.current = null;
-      setIsListening(false);
-      if (voiceTimeout.current) clearTimeout(voiceTimeout.current);
-
-      // Upload to backend STT endpoint
-      try {
-        const res = await api.uploadAudioForSTT(uri);
-        if (res && res.text) {
-          setQuickInput((prev) => (prev ? prev + ' ' + res.text : res.text));
-        } else {
-          setVoiceError('No transcription returned');
-        }
-      } catch (uErr) {
-        setVoiceError(uErr.message || 'STT upload failed');
-      }
-    } catch (e) {
-      console.error('[AddExpense] stopRecording error', e);
-      setLastDebug(`stopRecording error: ${e.message || e}`);
-      if (e && typeof e.message === 'string' && e.message.includes('ExponentAV')) {
-        const msg = 'Native audio module missing. Rebuild dev client or use Expo Go with `expo-av` support.';
-        setVoiceError(msg);
-        Alert.alert('Audio not available', msg);
-        console.error('Missing ExponentAV:', e);
-        return;
-      }
-      setVoiceError(e.message || 'Failed to stop recording');
-      setIsListening(false);
-    }
-  };
+  const { isListening, partialText, error: voiceError, startListening, stopListening } = useVoiceInput();
 
   const parsed = parseQuickEntry(quickInput);
 
@@ -164,6 +115,9 @@ export default function AddExpenseScreen({ navigation }) {
     }
   };
 
+  // What to show in the quick input while listening
+  const liveText = isListening && partialText ? partialText : quickInput;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.toggleRow}>
@@ -178,37 +132,49 @@ export default function AddExpenseScreen({ navigation }) {
         <Ionicons name="list-outline" size={18} color={useForm ? COLORS.primary : COLORS.textLight} />
         <Text style={[styles.toggleLabel, useForm && { color: COLORS.primary }]}>Full Form</Text>
       </View>
+
       {!useForm ? (
         <>
-          <View style={styles.quickBar}>
+          <View style={[styles.quickBar, isListening && styles.quickBarActive]}>
             <TextInput
               style={styles.quickInput}
               placeholder="e.g. 1200 lunch Java House"
-              value={quickInput}
-              onChangeText={setQuickInput}
-              autoFocus
+              value={liveText}
+              onChangeText={(t) => { if (!isListening) setQuickInput(t); }}
+              autoFocus={!isListening}
               placeholderTextColor={COLORS.textTertiary}
               onSubmitEditing={handleQuickSubmit}
               returnKeyType="done"
+              editable={!isListening}
             />
-            <TouchableOpacity style={styles.micBtn} onPress={isListening ? stopRecording : startRecording} disabled={loading}>
-              <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={26} color={isListening ? COLORS.primary : COLORS.textSecondary} />
+            <TouchableOpacity
+              style={styles.micBtn}
+              onPress={isListening ? stopListening : () => startListening((text) => setQuickInput(text))}
+              disabled={loading}
+            >
+              <Ionicons
+                name={isListening ? 'mic' : 'mic-outline'}
+                size={26}
+                color={isListening ? COLORS.primary : COLORS.textSecondary}
+              />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickBtn} onPress={handleQuickSubmit} disabled={loading}>
-              <Ionicons name="arrow-up-circle" size={28} color={COLORS.primary} />
+            <TouchableOpacity style={styles.quickBtn} onPress={handleQuickSubmit} disabled={loading || isListening}>
+              <Ionicons name="arrow-up-circle" size={28} color={loading || isListening ? COLORS.textLight : COLORS.primary} />
             </TouchableOpacity>
           </View>
-          {voiceError ? (
-            <Text style={{ color: 'red', marginBottom: 6, marginLeft: 8 }}>{voiceError}</Text>
-          ) : null}
-          {!!lastDebug && (
-            <Text style={{ color: '#666', marginBottom: 6, marginLeft: 8, fontSize: 12 }}>Debug: {lastDebug}</Text>
+
+          {isListening && (
+            <Text style={styles.listeningHint}>Listening… tap mic to stop</Text>
           )}
+          {voiceError ? (
+            <Text style={styles.errorText}>{voiceError}</Text>
+          ) : null}
+
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
-            <Text style={styles.previewText}><Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Amount:</Text> {parsed.amount || '—'}</Text>
-            <Text style={styles.previewText}><Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Description:</Text> {parsed.description || '—'}</Text>
-            <Text style={styles.previewText}><Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Merchant:</Text> {parsed.merchant || '—'}</Text>
+            <Text style={styles.previewText}><Text style={styles.previewKey}>Amount:</Text> {parsed.amount || '—'}</Text>
+            <Text style={styles.previewText}><Text style={styles.previewKey}>Description:</Text> {parsed.description || '—'}</Text>
+            <Text style={styles.previewText}><Text style={styles.previewKey}>Merchant:</Text> {parsed.merchant || '—'}</Text>
           </View>
         </>
       ) : (
@@ -261,13 +227,17 @@ const styles = StyleSheet.create({
   content: { padding: 24 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8 },
   toggleLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textLight, marginHorizontal: 2 },
-  quickBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, ...GLASS_STYLE, paddingHorizontal: 12, marginBottom: 18 },
+  quickBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, ...GLASS_STYLE, paddingHorizontal: 12, marginBottom: 8 },
+  quickBarActive: { borderColor: COLORS.primary, borderWidth: 1.5 },
   quickInput: { flex: 1, fontSize: 18, color: COLORS.text, paddingVertical: 16 },
   micBtn: { marginLeft: 4, marginRight: 4 },
   quickBtn: { marginLeft: 4 },
-  previewCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, marginBottom: 24, ...GLASS_STYLE },
+  listeningHint: { fontSize: FONT_SIZES.sm, color: COLORS.primary, marginBottom: 10, marginLeft: 4 },
+  errorText: { color: 'red', marginBottom: 6, marginLeft: 8, fontSize: FONT_SIZES.sm },
+  previewCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, marginBottom: 24, marginTop: 10, ...GLASS_STYLE },
   previewLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: 6 },
   previewText: { fontSize: FONT_SIZES.md, color: COLORS.text, marginBottom: 2 },
+  previewKey: { color: COLORS.primary, fontWeight: 'bold' },
   amountSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 32, justifyContent: 'center' },
   currency: { fontSize: FONT_SIZES.xl, color: COLORS.textSecondary, marginRight: 8, fontWeight: '300' },
   amountInput: { fontSize: FONT_SIZES.hero, fontWeight: '800', color: COLORS.text, textAlign: 'center', minWidth: 100, letterSpacing: -2 },
