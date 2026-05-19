@@ -38,7 +38,12 @@ export function useVoiceInput() {
       console.warn('[useVoiceInput] permission request failed:', permErr.message);
     }
 
-    Voice.onSpeechStart = () => setIsListening(true);
+    let didStart = false;
+
+    Voice.onSpeechStart = () => {
+      didStart = true;
+      setIsListening(true);
+    };
     Voice.onSpeechEnd = () => setIsListening(false);
     Voice.onSpeechPartialResults = (e) => setPartialText(e.value?.[0] || '');
     Voice.onSpeechResults = (e) => {
@@ -60,7 +65,6 @@ export function useVoiceInput() {
     try {
       const available = await Voice.isAvailable();
       if (!available) {
-        // iOS Simulator returns 0 here — real devices return 1.
         if (__DEV__ && Platform.OS === 'ios') {
           setError('Voice input is not supported on the iOS Simulator. Test on a real device.');
         } else {
@@ -69,18 +73,10 @@ export function useVoiceInput() {
         return;
       }
 
-      // Start with a timeout guard: if onSpeechStart never fires, the native
-      // layer silently dropped the request (common on simulator even when
-      // isAvailable() returns true).
-      let didStart = false;
-      const originalOnSpeechStart = Voice.onSpeechStart;
-      Voice.onSpeechStart = (e) => {
-        didStart = true;
-        originalOnSpeechStart(e);
-      };
-
       await Voice.start('en-US');
 
+      // If onSpeechStart never fires, the native layer silently dropped the
+      // request — common on simulator even when isAvailable() returns true.
       setTimeout(() => {
         if (!didStart) {
           Voice.cancel().catch(() => {});
